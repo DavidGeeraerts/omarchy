@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Post-install playbook for this Omarchy machine (Quattro / 4.x).
 # Idempotent: each step checks current state before it changes anything.
-# Refuses to run as root. Uses sudo only for package, fstab, and format work.
+# Refuses to run as root. Uses sudo for credential checks, packages, fstab,
+# and format work.
 #
 # Sources for the Omarchy commands are cited next to the steps that call them.
 
@@ -16,6 +17,11 @@ DATA_LABEL="Data"
 DATA_MOUNT="/mnt/data"
 DATA_CONFIRM="WIPE /dev/nvme0n1p3"
 FSTAB_OPTIONS="noatime,compress=zstd:3"
+
+# Public temporary password. The cidata loader copies user_credentials.json
+# verbatim from this public repo, so the install cannot start from a secret.
+TEMP_PASSWORD='2ChangeMe!'
+LOGIN_USER='maquis'
 
 MATRIX_ID="io.github.whiskeytangofussell.matrixscreens"
 MATRIX_URL="https://github.com/WhiskeyTangoFussell/omarchy-matrix-screens"
@@ -43,6 +49,11 @@ Usage: ./post-install.sh [--dry-run] [--reformat-data]
                     filesystem on /dev/nvme0n1p3 with Btrfs labeled Data.
                     Requires typing: WIPE /dev/nvme0n1p3
                     Ignored for execution when combined with --dry-run.
+
+The first step checks whether the temporary password 2ChangeMe! is still
+the maquis login password or a LUKS passphrase. When it is, the step runs
+passwd and cryptsetup luksChangeKey. It also locks root. --dry-run prints
+that plan and does not change credentials.
 
 Run as the Omarchy user (not root). sudo is used where a step needs it.
 EOF
@@ -120,6 +131,335 @@ ensure_line() {
   mkdir -p "$dir"
   printf '%s\n' "$line" >>"$file"
   changed "appended to $file: $line"
+}
+
+# --- temporary credentials ---------------------------------------------------
+# The install password is a known default. passwd changes the login password
+# only, so the LUKS passphrase has to be rotated with luksChangeKey.
+
+ensure_sudo() {
+  if sudo -n true 2>/dev/null; then
+    return 0
+  fi
+  if [[ ! -r /dev/tty ]]; then
+    die "sudo is required to check temporary credentials, and no terminal is available"
+  fi
+  log "sudo is required to read /etc/shadow and to test the disk passphrase"
+  # sudo reads its own password from the terminal, not from stdin.
+  sudo -v
+  sudo -n true
+}
+
+print_temp_credential_warning() {
+  cat <<EOF | tee -a "$LOG_FILE" >&2
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! TEMPORARY CREDENTIALS ARE STILL ACTIVE
+!!
+!! This repository is public. The password ${TEMP_PASSWORD} is a known
+!! default for the ${LOGIN_USER} login and for the disk passphrase.
+!! Anyone who has read the repo can use a machine that still has it.
+!!
+!! Change them before this laptop leaves home or a trusted network.
+!! passwd changes only the login password. The disk passphrase stays
+!! the same until cryptsetup luksChangeKey runs.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EOF
+}
+
+# Returns 0 when the hash verifies, 1 when it does not.
+# python3 crypt, then passlib, then openssl passwd -6 -salt.
+hash_matches_password() {
+  local hash=$1
+  local password=$2
+  local result rc salt computed
+
+  if command -v python3 >/dev/null 2>&1; then
+    set +e
+    result=$(
+      HASH="$hash" PASSWORD="$password" PYTHONWARNINGS='ignore::DeprecationWarning' \
+        python3 - <<'PY'
+import os
+import sys
+
+password = os.environ["PASSWORD"]
+shadow = os.environ["HASH"]
+if not shadow.startswith("$6$"):
+    print("no")
+    raise SystemExit(0)
+
+crypt = None
+try:
+    import crypt as crypt_mod
+    crypt = crypt_mod
+except ImportError:
+    crypt = None
+
+if crypt is not None:
+    try:
+        got = crypt.crypt(password, shadow)
+    except (OSError, ValueError):
+        got = None
+    if got:
+        print("yes" if got == shadow else "no")
+        raise SystemExit(0)
+
+try:
+    from passlib.hash import sha512_crypt
+    print("yes" if sha512_crypt.verify(password, shadow) else "no")
+except ImportError:
+    raise SystemExit(2)
+except Exception:
+    raise SystemExit(2)
+PY
+    )
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+      [[ $result == yes ]]
+      return
+    fi
+    if [[ $rc -ne 2 ]]; then
+      die "python could not check the shadow hash (exit $rc)"
+    fi
+  fi
+
+  command -v openssl >/dev/null 2>&1 || die "python crypt/passlib and openssl are unavailable; cannot check the temporary password"
+  case $hash in
+    *\$rounds=*)
+      die "the shadow hash uses an explicit rounds count, and python crypt/passlib could not check it"
+      ;;
+  esac
+  salt=$(printf '%s\n' "$hash" | awk -F'$' 'NF < 4 { exit 1 } { print $3; exit }')
+  [[ -n $salt ]] || die "could not read the salt from the shadow hash for $LOGIN_USER"
+  computed=$(printf '%s' "$password" | openssl passwd -6 -salt "$salt" -stdin)
+  [[ $computed == "$hash" ]]
+}
+
+user_password_is_temporary() {
+  local hash rc
+  set +e
+  hash=$(sudo -n awk -F: -v user="$LOGIN_USER" '$1 == user { print $2; found = 1; exit } END { if (!found) exit 1 }' /etc/shadow)
+  rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    die "could not read the shadow entry for $LOGIN_USER"
+  fi
+  if [[ -z $hash ]]; then
+    return 1
+  fi
+  case $hash in
+    \$6\$*) ;;
+    *) return 1 ;;
+  esac
+  hash_matches_password "$hash" "$TEMP_PASSWORD"
+}
+
+# Appends $2 to the nameref array named by $1 when it is a new block device.
+record_luks_device() {
+  local -n _bucket=$1
+  local dev=$2
+  local existing
+  [[ -n $dev && $dev == /dev/* ]] || return 0
+  if [[ -e $dev ]]; then
+    dev=$(readlink -f -- "$dev")
+  fi
+  if [[ ${#_bucket[@]} -gt 0 ]]; then
+    for existing in "${_bucket[@]}"; do
+      [[ $existing == "$dev" ]] && return 0
+    done
+  fi
+  _bucket+=("$dev")
+}
+
+luks_backing_from_status() {
+  local name=$1
+  sudo -n cryptsetup status "$name" 2>/dev/null | awk 'tolower($1) ~ /^device:$/ { print $2; exit }'
+}
+
+# Fills the nameref array named by $1. Root-backing devices first, then any
+# other crypto_LUKS device. Runs in the current shell so a failure can abort.
+collect_luks_devices() {
+  local dest=$1
+  local root_src name type fstype scan pass row_backing
+  root_src=$(findmnt -nro SOURCE / 2>/dev/null || true)
+  root_src=${root_src%%\[*}
+
+  for pass in root all; do
+    if [[ $pass == root ]]; then
+      [[ -n $root_src ]] || continue
+      # The source can be a subvolume path lsblk does not accept. The full
+      # scan below is the one that must succeed.
+      scan=$(sudo -n lsblk -nr -s -o NAME,TYPE,FSTYPE -- "$root_src" 2>/dev/null || true)
+    else
+      scan=$(sudo -n lsblk -nr -o NAME,TYPE,FSTYPE) || die "lsblk failed; cannot look for LUKS devices"
+    fi
+    while read -r name type fstype; do
+      [[ -n $name ]] || continue
+      if [[ $fstype == crypto_LUKS ]]; then
+        if [[ $name == /* ]]; then
+          record_luks_device "$dest" "$name"
+        else
+          record_luks_device "$dest" "/dev/$name"
+        fi
+      elif [[ $type == crypt ]]; then
+        row_backing=$(luks_backing_from_status "$name")
+        record_luks_device "$dest" "$row_backing"
+      fi
+    done <<<"$scan"
+  done
+}
+
+# Returns 0 when the temporary passphrase still opens the device.
+# Exit 2, or cryptsetup's "No key available" message, means it does not.
+luks_accepts_temp_passphrase() {
+  local dev=$1
+  local err rc
+  err=$(mktemp)
+  set +e
+  printf '%s' "$TEMP_PASSWORD" | sudo -n cryptsetup open --test-passphrase "$dev" - 2>"$err"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    rm -f "$err"
+    return 0
+  fi
+  if [[ $rc -eq 2 ]] || grep -qi 'no key available' "$err"; then
+    rm -f "$err"
+    return 1
+  fi
+  log "cryptsetup failed on $dev: $(tr '\n' ' ' <"$err")"
+  rm -f "$err"
+  die "could not test the LUKS passphrase on $dev (cryptsetup exit $rc)"
+}
+
+root_account_is_locked() {
+  local status state err rc
+  err=$(mktemp)
+  set +e
+  status=$(sudo -n passwd -S root 2>"$err")
+  rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    log "passwd -S root failed: $(tr '\n' ' ' <"$err")"
+    rm -f "$err"
+    die "could not read whether root is locked"
+  fi
+  rm -f "$err"
+  state=$(awk '{ print $2 }' <<<"$status")
+  [[ $state == L || $state == LK ]]
+}
+
+step_rotate_credentials() {
+  local user_temp=0
+  local dev
+  local -a luks_devs=()
+  local -a temp_devs=()
+  local -a other_devs=()
+
+  command -v cryptsetup >/dev/null 2>&1 || die "cryptsetup is required to test the temporary disk passphrase"
+  command -v findmnt >/dev/null 2>&1 || die "findmnt is required to find the LUKS device backing /"
+  command -v lsblk >/dev/null 2>&1 || die "lsblk is required to find LUKS devices"
+  command -v awk >/dev/null 2>&1 || die "awk is required to read account status"
+  command -v passwd >/dev/null 2>&1 || die "passwd is required to rotate the temporary password"
+
+  ensure_sudo
+
+  if user_password_is_temporary; then
+    user_temp=1
+  fi
+
+  collect_luks_devices luks_devs
+  if [[ ${#luks_devs[@]} -gt 0 ]]; then
+    for dev in "${luks_devs[@]}"; do
+      if luks_accepts_temp_passphrase "$dev"; then
+        temp_devs+=("$dev")
+      else
+        other_devs+=("$dev")
+      fi
+    done
+  fi
+
+  # Before any other step output, so a still-default install is obvious.
+  if [[ $user_temp -eq 1 || ${#temp_devs[@]} -gt 0 ]]; then
+    print_temp_credential_warning
+  fi
+
+  step "Rotate temporary credentials"
+
+  if [[ $user_temp -eq 1 ]]; then
+    log "The login password for $LOGIN_USER is still the temporary default."
+    log "passwd prompts for the current password, then the new password twice."
+    log "Current password: $TEMP_PASSWORD"
+    log "passwd does not change the disk passphrase."
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: would run passwd for $LOGIN_USER"
+      changed "change the $LOGIN_USER login password"
+    else
+      if [[ $(id -un) != "$LOGIN_USER" ]]; then
+        die "run ./post-install.sh as $LOGIN_USER to change the temporary login password"
+      fi
+      if [[ ! -r /dev/tty ]]; then
+        die "changing the $LOGIN_USER password needs a terminal"
+      fi
+      passwd </dev/tty
+      if user_password_is_temporary; then
+        die "the $LOGIN_USER password is still the temporary default"
+      fi
+      changed "changed the $LOGIN_USER login password"
+    fi
+  else
+    log "The $LOGIN_USER password is not the temporary default."
+  fi
+
+  if [[ ${#luks_devs[@]} -eq 0 ]]; then
+    log "WARNING: no LUKS device was found. The disk passphrase was not checked and was not changed."
+    log "passwd does not change a disk passphrase. If this system is encrypted, run: sudo cryptsetup luksChangeKey <device>"
+  elif [[ ${#temp_devs[@]} -eq 0 ]]; then
+    log "No LUKS device still uses the temporary passphrase."
+  elif [[ ${#other_devs[@]} -gt 0 ]]; then
+    for dev in "${other_devs[@]}"; do
+      log "LUKS passphrase on $dev is not the temporary default."
+    done
+  fi
+
+  if [[ ${#temp_devs[@]} -gt 1 ]]; then
+    log "More than one LUKS device still uses the temporary passphrase."
+    log "The prompt repeats for each device. Each one still expects ${TEMP_PASSWORD} until that device is changed."
+  fi
+
+  if [[ ${#temp_devs[@]} -gt 0 ]]; then
+    for dev in "${temp_devs[@]}"; do
+      log "The disk passphrase on $dev is still the temporary default."
+      log "sudo cryptsetup luksChangeKey prompts for the current passphrase, then the new one twice."
+      log "Current passphrase: $TEMP_PASSWORD"
+      log "passwd does not change this passphrase. There is no recovery if the new one is lost."
+      if [[ $DRY_RUN -eq 1 ]]; then
+        log "dry-run: would run sudo cryptsetup luksChangeKey $dev"
+        changed "change the LUKS passphrase on $dev"
+      else
+        if [[ ! -r /dev/tty ]]; then
+          die "changing the LUKS passphrase on $dev needs a terminal"
+        fi
+        # cryptsetup reads the passphrase from stdin. Point that at the
+        # terminal so an earlier pipe cannot answer the prompt.
+        # shellcheck disable=SC2024
+        sudo -n cryptsetup luksChangeKey "$dev" </dev/tty
+        if luks_accepts_temp_passphrase "$dev"; then
+          die "the LUKS passphrase on $dev is still the temporary default"
+        fi
+        changed "changed the LUKS passphrase on $dev"
+      fi
+    done
+  fi
+
+  if root_account_is_locked; then
+    log "root account is already locked"
+  else
+    log "locking the root account"
+    run sudo -n passwd -l root
+    changed "locked the root account"
+  fi
 }
 
 # --- steps -------------------------------------------------------------------
@@ -606,15 +946,20 @@ main() {
     die "Refusing to run as root. Run as the Omarchy user; sudo is used where needed."
   fi
 
-  require_cmd omarchy
   require_cmd sudo
-  require_cmd pacman
-  require_cmd jq
-  [[ -f /etc/pacman.conf ]] || die "/etc/pacman.conf is missing"
 
   mkdir -p "$STATE_DIR"
   log ""
   log "==> post-install $(date -Is) dry_run=$DRY_RUN reformat_data=$REFORMAT_DATA"
+
+  # Credential rotation is first. A machine still using the public default
+  # must not wait on package commands before the password and passphrase change.
+  step_rotate_credentials
+
+  require_cmd omarchy
+  require_cmd pacman
+  require_cmd jq
+  [[ -f /etc/pacman.conf ]] || die "/etc/pacman.conf is missing"
 
   step_update
   step_packages
@@ -632,4 +977,6 @@ main() {
   step_summary
 }
 
-main "$@"
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
