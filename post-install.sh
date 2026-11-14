@@ -2,7 +2,7 @@
 # Post-install playbook for this Omarchy machine (Quattro / 4.x).
 # Idempotent: each step checks current state before it changes anything.
 # Refuses to run as root. Uses sudo for credential checks, packages, fstab,
-# mounts, and format work.
+# mounts, format work, and Dell firmware attributes.
 #
 # Sources for the Omarchy commands are cited next to the steps that call them.
 
@@ -13,6 +13,11 @@ REFORMAT_DATA=0
 HYPR_RELOAD=0
 HYPR_RELOADED=0
 DATA_READY=0
+TOUCHSCREEN_REBOOT=0
+
+# Dell XPS 17 9720. current_value is root-readable only. A write is staged
+# in the firmware until the next boot (pending_reboot).
+DELL_WMI_SYSFS=/sys/class/firmware-attributes/dell-wmi-sysman
 
 # Secondary drive, not the LUKS root. nvme1n1p1 (1M) and nvme1n1p2 (15M) are
 # leftover Windows partitions and are never touched. The UUID is read from
@@ -499,6 +504,47 @@ step_update() {
   log "omarchy update -y"
   run omarchy update -y
   changed "ran omarchy update -y"
+}
+
+step_agents_nostarters() {
+  step "Agents panel without starter tiles"
+  local upstream dest repo_script
+  upstream=/usr/share/omarchy/shell/plugins/agents
+  dest="$HOME/.local/bin/omarchy-agents-nostarters"
+  repo_script=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/bin/omarchy-agents-nostarters
+
+  # The panel ships inside the omarchy package. The script exits if this
+  # directory is missing, so skip before that on a machine that does not
+  # have it.
+  if [[ ! -d $upstream ]]; then
+    log "Skipping: Agents plugin not found at $upstream"
+    return 0
+  fi
+  [[ -f $repo_script ]] || die "missing $repo_script"
+
+  if [[ -f $dest && -x $dest ]] && cmp -s "$repo_script" "$dest"; then
+    log "omarchy-agents-nostarters already installed at $dest"
+  elif [[ $DRY_RUN -eq 1 ]]; then
+    log "would install $repo_script to $dest"
+    changed "install $dest"
+  else
+    mkdir -p -- "$(dirname "$dest")"
+    install -m 755 "$repo_script" "$dest"
+    changed "installed $dest"
+  fi
+
+  # Rebuilds ~/.config/omarchy/plugins/local.agents from the package copy
+  # and points the bar at local.agents. Repeating this is safe: once the
+  # bar id is local.agents, shell.json is left alone. Running it after
+  # omarchy update picks up upstream Agents panel changes.
+  # The script moves the patched tree into plugins/. That directory appears
+  # when a user plugin is installed; this step runs before those plugins.
+  if [[ $DRY_RUN -eq 0 ]]; then
+    mkdir -p -- "$HOME/.config/omarchy/plugins"
+  fi
+  log "running omarchy-agents-nostarters"
+  run "$dest"
+  changed "Agents panel without the Make something cool starter tiles"
 }
 
 ensure_multilib() {
@@ -1528,6 +1574,126 @@ step_steam_library() {
   note_steam_library_manual
 }
 
+# Prints the file. dell-wmi-sysman current_value is root-readable only, so
+# a file the login user cannot read is fetched with sudo.
+sysfs_text() {
+  local file=$1
+  if [[ -r $file ]]; then
+    cat -- "$file"
+  else
+    sudo -n cat -- "$file"
+  fi
+}
+
+# First line, without a trailing CR.
+sysfs_line() {
+  local file=$1
+  sysfs_text "$file" | tr -d '\r' | awk 'NR == 1 { print; exit }'
+}
+
+# possible_values is a semicolon-separated list and often ends with ';'.
+sysfs_has_token() {
+  local text=$1
+  local want=$2
+  printf '%s\n' "$text" | tr -d '\r' | awk -F';' -v want="$want" '
+    {
+      for (i = 1; i <= NF; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+        if ($i == want) found = 1
+      }
+    }
+    END { exit !found }
+  '
+}
+
+ensure_touchscreen_sudo() {
+  if sudo -n true 2>/dev/null; then
+    return 0
+  fi
+  if [[ ! -r /dev/tty ]]; then
+    die "sudo is required to read Dell firmware attributes, and no terminal is available"
+  fi
+  log "sudo is required to read and set the Dell touchscreen firmware attribute"
+  sudo -v
+  sudo -n true
+}
+
+step_touchscreen() {
+  step "Dell touchscreen"
+  local root attr possible admin_file pending_file
+  local possible_text current admin pending needs_sudo
+  root=$DELL_WMI_SYSFS
+  attr=$root/attributes/Touchscreen
+  possible=$attr/possible_values
+  admin_file=$root/authentication/Admin/is_enabled
+  pending_file=$root/pending_reboot
+
+  if [[ ! -d $attr ]]; then
+    log "Skipping: $attr does not exist (not a Dell with dell-wmi-sysman, or the module is not loaded)"
+    return 0
+  fi
+  [[ -f $possible ]] || die "missing $possible"
+  [[ -f $attr/current_value ]] || die "missing $attr/current_value"
+
+  needs_sudo=0
+  [[ -r $possible ]] || needs_sudo=1
+  [[ -r $attr/current_value ]] || needs_sudo=1
+  if [[ -e $admin_file && ! -r $admin_file ]]; then
+    needs_sudo=1
+  fi
+  if [[ $needs_sudo -eq 1 ]]; then
+    ensure_touchscreen_sudo
+  fi
+
+  possible_text=$(sysfs_text "$possible") || die "could not read $possible"
+  if ! sysfs_has_token "$possible_text" Disabled; then
+    die "Disabled is not one of the Touchscreen possible_values in $possible"
+  fi
+
+  current=$(sysfs_line "$attr/current_value") || die "could not read $attr/current_value"
+  if [[ $current == Disabled ]]; then
+    log "Touchscreen is already Disabled"
+    return 0
+  fi
+
+  if [[ ! -e $admin_file ]]; then
+    log "Skipping: $admin_file does not exist, so this script cannot tell whether a BIOS admin password is set. Touchscreen was not changed."
+    return 0
+  fi
+  if [[ ! -r $admin_file ]]; then
+    ensure_touchscreen_sudo
+  fi
+  admin=$(sysfs_line "$admin_file") || die "could not read $admin_file"
+  if [[ $admin == 1 ]]; then
+    log "BIOS admin password is set (authentication/Admin/is_enabled is 1). Touchscreen was not changed. Disable it in BIOS setup (F2). This script does not handle BIOS passwords."
+    return 0
+  fi
+  if [[ $admin != 0 ]]; then
+    die "unexpected authentication/Admin/is_enabled value: ${admin:-empty}"
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "would write Disabled to $attr/current_value"
+    log "A reboot would be required. dell-wmi-sysman stages the change in pending_reboot."
+    changed "disable the Dell touchscreen"
+    TOUCHSCREEN_REBOOT=1
+    return 0
+  fi
+
+  ensure_touchscreen_sudo
+  printf '%s\n' Disabled | sudo -n tee -- "$attr/current_value" >/dev/null
+  current=$(sysfs_line "$attr/current_value") || die "could not read $attr/current_value after writing Disabled"
+  [[ $current == Disabled ]] || die "Touchscreen current_value is still '${current:-empty}' after writing Disabled"
+  changed "set Dell Touchscreen to Disabled"
+  TOUCHSCREEN_REBOOT=1
+  if [[ -e $pending_file ]]; then
+    pending=$(sysfs_line "$pending_file") || die "could not read $pending_file"
+    log "Touchscreen set to Disabled. A reboot is required before it takes effect (pending_reboot is ${pending:-unread})."
+  else
+    log "Touchscreen set to Disabled. A reboot is required before it takes effect (pending_reboot was not present)."
+  fi
+}
+
 reboot_reason() {
   local marker running dir kernel seen match
   marker="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/reboot-required"
@@ -1578,7 +1744,19 @@ step_summary() {
     fi
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
-    log "Reboot: not evaluated. omarchy update -y reports one when a real run needs it."
+    if [[ $TOUCHSCREEN_REBOOT -eq 1 ]]; then
+      log "Reboot: would be required. Disabling the touchscreen is staged in firmware (pending_reboot) and applies on the next boot."
+    else
+      log "Reboot: not evaluated. omarchy update -y reports one when a real run needs it."
+    fi
+    return 0
+  fi
+  if [[ $TOUCHSCREEN_REBOOT -eq 1 ]]; then
+    log "Reboot: yes. Touchscreen was set to Disabled. Firmware stages that in pending_reboot until the next boot."
+    log "When you are ready: omarchy-system reboot"
+    if reason=$(reboot_reason); then
+      log "Also: $reason"
+    fi
     return 0
   fi
   if reason=$(reboot_reason); then
@@ -1626,6 +1804,7 @@ main() {
   [[ -f /etc/pacman.conf ]] || die "/etc/pacman.conf is missing"
 
   step_update
+  step_agents_nostarters
   step_packages
   step_mpv
   step_default_apps
@@ -1634,6 +1813,7 @@ main() {
   step_bindings
   step_data_drive
   step_steam_library
+  step_touchscreen
   step_summary
 }
 

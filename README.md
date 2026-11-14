@@ -6,9 +6,18 @@ System snapshot: [fastfetch.md](fastfetch.md), captured 2026-11-14.
 
 ## Pre-install: BIOS settings
 
-Do these in the Dell firmware setup before the Omarchy ISO boots. The firmware cannot be scripted. Press F2 at the logo. The key and the menu names vary by model. This is a checklist so later firmware choices can be added here.
+Do these in the Dell firmware setup before the Omarchy ISO boots. Press F2 at the logo. The key and the menu names vary by model. This is a checklist so later firmware choices can be added here.
 
-- [ ] **Touchscreen: off.** System Configuration, or Integrated Devices, then Touchscreen, then Off.
+- [ ] **Touchscreen: off.** `post-install.sh` does this automatically on a Dell machine that exposes `dell-wmi-sysman`. The step skips with a log when `/sys/class/firmware-attributes/dell-wmi-sysman/attributes/Touchscreen` does not exist (another vendor, or the module is not loaded). It writes `Disabled` only when that word is in `possible_values`, `current_value` is not already `Disabled`, and `authentication/Admin/is_enabled` is `0`. On this XPS 17 9720, `possible_values` is `Disabled;Enabled;`, `current_value` is root-readable only, and the BIOS admin password is not set (`is_enabled` is `0`). The write is staged in firmware (`pending_reboot`) and takes effect after a reboot. If a BIOS admin password is set (`is_enabled` is `1`), the step skips: it does not handle passwords, and the touchscreen has to be turned off in BIOS setup. The manual fallback, and the way to do it before the OS is installed, is F2, then System Configuration or Integrated Devices, then Touchscreen, then Off. From a shell:
+
+```bash
+ls /sys/class/firmware-attributes/dell-wmi-sysman/attributes/ | grep -i touch
+A=/sys/class/firmware-attributes/dell-wmi-sysman/attributes/Touchscreen
+cat $A/current_value $A/possible_values
+echo Disabled | sudo tee $A/current_value
+```
+
+`current_value` is not readable by the login user, so `cat` of that file needs sudo. `sudo cat` shows it. The `echo` line is what stages `Disabled`.
 
 ## Install-time config
 
@@ -87,13 +96,25 @@ cd omarchy
 ./post-install.sh
 ```
 
-Run it as `maquis`, not as root. The script uses sudo for the credential check, for packages, for the `/data` fstab entry and mount, and, only if you ask, for erasing the Data partition.
+Run it as `maquis`, not as root. The script uses sudo for the credential check, for packages, for the `/data` fstab entry and mount, for the Dell touchscreen attribute, and, only if you ask, for erasing the Data partition.
 
 Do this on the first login, while the laptop is still at home. The repo is public and the install password is the known default `2ChangeMe!`.
 
 The first step rotates those temporary credentials before any package work. If the `maquis` hash in `/etc/shadow` still matches `2ChangeMe!`, the script runs `passwd`. If a LUKS device still opens with that passphrase (`cryptsetup open --test-passphrase`), it prints the current passphrase and runs `sudo cryptsetup luksChangeKey` on each such device. `passwd` does not change the disk passphrase, which is why the LUKS command is separate. It then locks `root` with `sudo passwd -l root` when `passwd -S root` says the account is not already locked. A second run skips `passwd` and `luksChangeKey` once those checks show the temporary password is gone, and it leaves `root` locked. `--dry-run` prints that plan and does not change the password, the passphrase, or the lock.
 
-`./post-install.sh` then updates via `omarchy update -y`, installs geeqie, Steam (through Omarchy's lib32 driver step, then `omarchy pkg add steam`), and `nvidia-prime` (`prime-run`). VLC is optional and the install line is commented out. It sets `hwdec=vaapi` for mpv, points Sony ARW/SR2/SRF at Geeqie, installs and enables Matrix Screens with the screensaver on, enables Pulse, and installs the latest RAWmakase `.pkg.tar.zst` after `SHA256SUMS`.
+`./post-install.sh` then updates via `omarchy update -y` and, next, installs `omarchy-agents-nostarters` and runs it so the Agents bar drops the three "Make something cool" starter tiles. It installs geeqie, Steam (through Omarchy's lib32 driver step, then `omarchy pkg add steam`), and `nvidia-prime` (`prime-run`). VLC is optional and the install line is commented out. It sets `hwdec=vaapi` for mpv, points Sony ARW/SR2/SRF at Geeqie, installs and enables Matrix Screens with the screensaver on, enables Pulse, and installs the latest RAWmakase `.pkg.tar.zst` after `SHA256SUMS`. On a Dell machine it then disables the touchscreen through `dell-wmi-sysman`, as described in the BIOS checklist above. That firmware change needs a reboot.
+
+### Agents panel
+
+The Agents bar panel shows three "Make something cool" starter tiles: theme, plugin, and app. Omarchy has no setting to hide them. The panel is `/usr/share/omarchy/shell/plugins/agents`, which the omarchy package owns, so a direct edit is overwritten on the next `omarchy update`.
+
+After `omarchy update`, `post-install.sh` copies [`bin/omarchy-agents-nostarters`](bin/omarchy-agents-nostarters) to `~/.local/bin/omarchy-agents-nostarters` and runs it. The script builds a user-plugin copy at `~/.config/omarchy/plugins/local.agents` (id `local.agents`, display name "Agents (no starters)") and changes the bar entry in `~/.config/omarchy/shell.json` from `omarchy.agents` to `local.agents`. When it rewrites `shell.json`, it saves a copy next to it as `shell.json.bak.<unix time>`. If `/usr/share/omarchy/shell/plugins/agents` is not there, the step logs a skip and does not change the bar.
+
+That copy does not receive later Agents-panel changes until you run `omarchy-agents-nostarters` again. `post-install.sh` does that after every `omarchy update`. After an update you ran by hand, run `omarchy-agents-nostarters` yourself.
+
+If the upstream `Panel.qml` layout no longer matches the patch anchors, the script aborts and does not replace `~/.config/omarchy/plugins/local.agents` or edit `shell.json`.
+
+To revert, change the bar entry id back to `omarchy.agents` in `~/.config/omarchy/shell.json` and delete `~/.config/omarchy/plugins/local.agents`.
 
 ### Data drive
 
@@ -134,13 +155,14 @@ o.rebind("SUPER + SHIFT + A", "Grok", { webapp = "https://grok.com" })
 
 `SUPER + SHIFT + A` was the ChatGPT web app and is now the Grok web app. `SUPER + SHIFT + ALT + A` was the Grok web app and is now Grok Bot. The Grok Bot line is written only when `grok-bot` is on `PATH`. Otherwise the script logs a skip and leaves an existing Bot line in place.
 
-A log is appended to `~/.local/state/omarchy-playbook/post-install.log`. The script ends with what changed and whether a reboot is needed. A bindings change does not need a reboot.
+A log is appended to `~/.local/state/omarchy-playbook/post-install.log`. The script ends with what changed and whether a reboot is needed. A bindings change does not need a reboot. Disabling the touchscreen does: `dell-wmi-sysman` keeps it in `pending_reboot` until the next boot.
 
 ## Sources
 
 - [Omarchy manual](https://omarchy.org/manual/), including [Unattended installs](https://omarchy.org/manual/unattended-installs/)
 - [learn.omacom.io/2/the-omarchy-manual](https://learn.omacom.io/2/the-omarchy-manual) is the legacy Omarchy 3 manual. It points Quattro readers at omarchy.org and does not document cidata.
-- [omacom/omarchy](https://github.com/omacom/omarchy) branch `quattro`: `bin/omarchy-update`, `bin/omarchy-pkg-add`, `bin/omarchy-install-gaming-steam`, `bin/omarchy-install-gaming-gpu-lib32`, `bin/omarchy-plugin-add`, `bin/omarchy-plugin-enable`, `config/hypr/bindings.lua`, `default/hypr/helpers.lua`, `default/hypr/bindings/applications.lua`, `default/hypr/nvidia.lua`, `default/pacman/pacman-stable.conf`, `install/provisioning/setup-form.sh`
+- [omacom/omarchy](https://github.com/omacom/omarchy) branch `quattro`: `bin/omarchy-update`, `bin/omarchy-pkg-add`, `bin/omarchy-install-gaming-steam`, `bin/omarchy-install-gaming-gpu-lib32`, `bin/omarchy-plugin-add`, `bin/omarchy-plugin-enable`, `shell/plugins/agents` (`Panel.qml`, `manifest.json`), `config/hypr/bindings.lua`, `default/hypr/helpers.lua`, `default/hypr/bindings/applications.lua`, `default/hypr/nvidia.lua`, `default/pacman/pacman-stable.conf`, `install/provisioning/setup-form.sh`
+- Linux `dell-wmi-sysman` firmware attributes: `/sys/class/firmware-attributes/dell-wmi-sysman/attributes/Touchscreen` (`current_value`, `possible_values`), `authentication/Admin/is_enabled`, and `pending_reboot`
 - [omacom/omarchy-iso](https://github.com/omacom/omarchy-iso) branch `quattro`: `configs/airootfs/usr/local/bin/omarchy-cidata-load`, `configs/airootfs/root/configurator`
 - [WhiskeyTangoFussell/omarchy-matrix-screens](https://github.com/WhiskeyTangoFussell/omarchy-matrix-screens)
 - [SanchoKusika/omarchy-pulse](https://github.com/SanchoKusika/omarchy-pulse)

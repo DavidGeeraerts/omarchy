@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Rebuild a copy of Omarchy's Agents bar panel without the
+# "Make something cool" starter tiles (theme / plugin / app).
+# Re-run after `omarchy update` to pick up upstream changes.
+set -euo pipefail
+src=/usr/share/omarchy/shell/plugins/agents
+dst="$HOME/.config/omarchy/plugins/local.agents"
+cfg="$HOME/.config/omarchy/shell.json"
+[ -d "$src" ] || { echo "Agents plugin not found at $src" >&2; exit 1; }
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+cp -r "$src" "$tmp/local.agents"
+python3 - "$tmp/local.agents" <<'PY'
+import json, re, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+m = json.loads((d/"manifest.json").read_text())
+m["id"] = "local.agents"; m["name"] = "Agents (no starters)"
+m["barWidget"]["displayName"] = "Agents (no starters)"
+(d/"manifest.json").write_text(json.dumps(m, indent=2) + "\n")
+p = d/"Panel.qml"; s = p.read_text()
+s, n1 = re.subn(r"readonly property var starterPrompts: \[.*?\n  \]", "readonly property var starterPrompts: []", s, flags=re.S)
+i = s.find("// ---------- Make something ----------")
+if n1 != 1 or i < 0: sys.exit("Panel.qml layout changed; patch anchors not found")
+head, tail = s[:i], s[i:]
+tail, n2 = re.subn(r'visible: root\.addStage === "" && !root\.blankSlate', "visible: false", tail, count=2)
+if n2 != 2: sys.exit("Make-something section not found")
+p.write_text(head + tail)
+PY
+rm -rf "$dst"; mv "$tmp/local.agents" "$dst"
+if [ -f "$cfg" ] && grep -q '"omarchy.agents"' "$cfg"; then
+  cp "$cfg" "$cfg.bak.$(date +%s)"
+  python3 - "$cfg" <<'PY'
+import json, sys
+f = sys.argv[1]; c = json.load(open(f))
+for side in c.get("bar", {}).get("layout", {}).values():
+    if isinstance(side, list):
+        for w in side:
+            if isinstance(w, dict) and w.get("id") == "omarchy.agents": w["id"] = "local.agents"
+json.dump(c, open(f, "w"), indent=2); open(f, "a").write("\n")
+PY
+fi
+echo "Agents panel without starter tiles installed at $dst"
