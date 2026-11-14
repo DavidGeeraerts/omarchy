@@ -2,7 +2,7 @@
 # Post-install playbook for this Omarchy machine (Quattro / 4.x).
 # Idempotent: each step checks current state before it changes anything.
 # Refuses to run as root. Uses sudo for credential checks, packages, fstab,
-# and format work.
+# mounts, and format work.
 #
 # Sources for the Omarchy commands are cited next to the steps that call them.
 
@@ -11,12 +11,20 @@ set -euo pipefail
 DRY_RUN=0
 REFORMAT_DATA=0
 HYPR_RELOAD=0
+HYPR_RELOADED=0
+DATA_READY=0
 
-DATA_PART="/dev/nvme0n1p3"
+# Secondary drive, not the LUKS root. nvme1n1p1 (1M) and nvme1n1p2 (15M) are
+# leftover Windows partitions and are never touched. The UUID is read from
+# blkid at runtime: mkfs changes it, so it is not hardcoded. /data is
+# unencrypted; do not point DATA_MOUNT at /home.
+DATA_PART="/dev/nvme1n1p3"
 DATA_LABEL="Data"
-DATA_MOUNT="/mnt/data"
-DATA_CONFIRM="WIPE /dev/nvme0n1p3"
-FSTAB_OPTIONS="noatime,compress=zstd:3"
+DATA_MOUNT="/data"
+DATA_SUBVOL="@data"
+DATA_CONFIRM="WIPE ${DATA_PART}"
+FSTAB_OPTIONS="rw,noatime,compress=zstd:3,ssd,discard=async,space_cache=v2,subvol=/${DATA_SUBVOL},nofail"
+FSTAB_FILE="/etc/fstab"
 
 # Public temporary password. The cidata loader copies user_credentials.json
 # verbatim from this public repo, so the install cannot start from a secret.
@@ -33,7 +41,16 @@ PULSE_SECTION="left"
 GEEQIE_DESKTOP="org.geeqie.Geeqie.desktop"
 MPV_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/mpv/mpv.conf"
 BINDINGS="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/bindings.lua"
+# Omarchy 4.5 reads this Lua file (o.bind / o.rebind), not Hyprland bind= lines.
+# SUPER + ALT + F is a new binding. The Grok chords already exist, so those use
+# o.rebind: SUPER+SHIFT+A was ChatGPT, SUPER+SHIFT+ALT+A was the Grok web app.
 BIND_LINE='o.bind("SUPER + ALT + F", "Maximize", "hyprctl dispatch fullscreen 1")'
+GROK_BOT_COMMENT='-- Launch Grok Bot instead of the Grok web app.'
+GROK_BOT_LINE='o.rebind("SUPER + SHIFT + ALT + A", "Grok Bot", { launch = "grok-bot", focus = "^grok-bot$" })'
+GROK_WEB_LINE='o.rebind("SUPER + SHIFT + A", "Grok", { webapp = "https://grok.com" })'
+GTK_BOOKMARKS="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/bookmarks"
+# Steam's usual path on this machine. Not XDG_DATA_HOME: Steam keeps this file here.
+STEAM_LIBRARY_VDF="$HOME/.local/share/Steam/steamapps/libraryfolders.vdf"
 MATRIX_SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/matrix-screens/settings.json"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-playbook"
 LOG_FILE="$STATE_DIR/post-install.log"
@@ -41,17 +58,27 @@ LOG_FILE="$STATE_DIR/post-install.log"
 CHANGES=()
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage: ./post-install.sh [--dry-run] [--reformat-data]
 
   --dry-run         Print the actions. Do not change the system.
-  --reformat-data   DESTRUCTIVE and off by default. Replace the NTFS
-                    filesystem on /dev/nvme0n1p3 with Btrfs labeled Data.
-                    Requires typing: WIPE /dev/nvme0n1p3
+  --reformat-data   DESTRUCTIVE and off by default. Erase ${DATA_PART}
+                    when its filesystem is NTFS and create a Btrfs volume
+                    labeled ${DATA_LABEL}, subvolume ${DATA_SUBVOL}, mounted
+                    at ${DATA_MOUNT}.
+                    Requires typing: ${DATA_CONFIRM}
+                    A volume that is already Btrfs labeled ${DATA_LABEL} is
+                    not formatted again. nvme1n1p1 and nvme1n1p2 are leftover
+                    Windows partitions and are never touched.
                     Ignored for execution when combined with --dry-run.
 
-The first step checks whether the temporary password 2ChangeMe! is still
-the maquis login password or a LUKS passphrase. When it is, the step runs
+Without --reformat-data, a partition that is already Btrfs labeled ${DATA_LABEL}
+with a ${DATA_SUBVOL} subvolume is mounted at ${DATA_MOUNT}. Anything else is
+left unchanged and a warning is printed. ${DATA_MOUNT} is not encrypted. The
+OS disk is LUKS. Do not move /home there.
+
+The first step checks whether the temporary password ${TEMP_PASSWORD} is still
+the ${LOGIN_USER} login password or a LUKS passphrase. When it is, the step runs
 passwd and cryptsetup luksChangeKey. It also locks root. --dry-run prints
 that plan and does not change credentials.
 
@@ -730,37 +757,281 @@ step_rawmakase() {
 }
 
 step_bindings() {
-  step "Hyprland keybinding"
-  # config/hypr/bindings.lua documents o.bind(keys, description, command).
-  # default/hypr/helpers.lua function o.bind passes a string dispatcher to
-  # hl.dsp.exec_cmd. fullscreen 1 is Hyprland's maximize mode.
-  local dir
+  step "Hyprland keybindings"
+  # config/hypr/bindings.lua is the Quattro user file, loaded after the defaults.
+  # o.bind adds a key. o.rebind (default/hypr/helpers.lua) unbinds first, which
+  # is required for SUPER+SHIFT+A (ChatGPT) and SUPER+SHIFT+ALT+A (Grok web app).
+  # fullscreen 1 is Hyprland's maximize mode. This file is Lua, not bind= lines.
+  local dir wrote
+  local -a grok=()
+  local -a managed=()
+  grok=("$GROK_WEB_LINE")
+  if command -v grok-bot >/dev/null 2>&1; then
+    grok=("$GROK_BOT_COMMENT" "$GROK_BOT_LINE" "$GROK_WEB_LINE")
+  elif [[ -f $BINDINGS ]] && grep -qxF -- "$GROK_BOT_LINE" "$BINDINGS"; then
+    log "grok-bot is not on PATH. Leaving the existing Grok Bot rebind in $BINDINGS."
+  else
+    log "grok-bot is not on PATH. Skipping the SUPER + SHIFT + ALT + A rebind."
+  fi
+  managed=("$BIND_LINE" "$GROK_BOT_COMMENT" "$GROK_BOT_LINE" "$GROK_WEB_LINE")
+
+  if bindings_satisfied "$BIND_LINE" "${grok[@]}"; then
+    if has_duplicate_managed_lines "$BINDINGS" "${managed[@]}"; then
+      if [[ $DRY_RUN -eq 1 ]]; then
+        log "would back up $BINDINGS and remove duplicate binding lines"
+      else
+        backup_file "$BINDINGS"
+        dedupe_managed_lines "$BINDINGS" "${managed[@]}"
+        changed "removed duplicate bindings in $BINDINGS"
+      fi
+      HYPR_RELOAD=1
+      maybe_reload_hyprland
+      return 0
+    fi
+    log "bindings already present in $BINDINGS"
+    return 0
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    if [[ -f $BINDINGS ]]; then
+      log "would back up $BINDINGS"
+    else
+      log "would create $BINDINGS"
+    fi
+    log_missing_bindings "$BIND_LINE"
+    log_missing_bindings "${grok[@]}"
+    changed "Hyprland bindings in $BINDINGS"
+    HYPR_RELOAD=1
+    maybe_reload_hyprland
+    return 0
+  fi
+
   dir=$(dirname "$BINDINGS")
-  if [[ -f $BINDINGS ]] && grep -qxF -- "$BIND_LINE" "$BINDINGS"; then
-    log "binding already present in $BINDINGS"
+  mkdir -p -- "$dir"
+  wrote=0
+  if [[ -f $BINDINGS ]]; then
+    backup_file "$BINDINGS"
+    if dedupe_managed_lines "$BINDINGS" "${managed[@]}"; then
+      changed "removed duplicate bindings in $BINDINGS"
+      wrote=1
+    fi
+  else
+    printf '%s\n' "-- Personal bindings. Loaded after Omarchy defaults." >"$BINDINGS"
+    wrote=1
+  fi
+  if append_new_lines "$BINDINGS" "$BIND_LINE"; then
+    changed "added SUPER + ALT + F in $BINDINGS"
+    wrote=1
+  fi
+  if append_new_lines "$BINDINGS" "${grok[@]}"; then
+    changed "added Grok bindings in $BINDINGS"
+    wrote=1
+  fi
+  if [[ $wrote -eq 1 ]]; then
+    HYPR_RELOAD=1
+  fi
+  maybe_reload_hyprland
+}
+
+bindings_satisfied() {
+  local line
+  [[ -f $BINDINGS ]] || return 1
+  for line in "$@"; do
+    grep -qxF -- "$line" "$BINDINGS" || return 1
+  done
+}
+
+log_missing_bindings() {
+  local line
+  for line in "$@"; do
+    if [[ -f $BINDINGS ]] && grep -qxF -- "$line" "$BINDINGS"; then
+      continue
+    fi
+    log "would append to $BINDINGS: $line"
+  done
+}
+
+backup_file() {
+  local file=$1
+  local bak stamp
+  [[ -f $file ]] || return 0
+  stamp=$(date +%Y%m%d-%H%M%S)
+  bak="${file}.bak.${stamp}"
+  if [[ -e $bak ]]; then
+    bak="${bak}.$$"
+  fi
+  cp -a -- "$file" "$bak"
+  log "backed up $file to $bak"
+}
+
+has_duplicate_managed_lines() {
+  local file=$1
+  shift
+  local line want managed
+  local -A seen=()
+  [[ -f $file ]] || return 1
+  while IFS= read -r line || [[ -n $line ]]; do
+    managed=0
+    for want in "$@"; do
+      if [[ $line == "$want" ]]; then
+        managed=1
+        break
+      fi
+    done
+    if [[ $managed -eq 1 ]]; then
+      if [[ -n ${seen[$line]+x} ]]; then
+        return 0
+      fi
+      seen[$line]=1
+    fi
+  done <"$file"
+  return 1
+}
+
+dedupe_managed_lines() {
+  local file=$1
+  shift
+  local tmp line want managed changed
+  local -A seen=()
+  changed=0
+  tmp=$(mktemp)
+  while IFS= read -r line || [[ -n $line ]]; do
+    managed=0
+    for want in "$@"; do
+      if [[ $line == "$want" ]]; then
+        managed=1
+        break
+      fi
+    done
+    if [[ $managed -eq 1 ]]; then
+      if [[ -n ${seen[$line]+x} ]]; then
+        changed=1
+        continue
+      fi
+      seen[$line]=1
+    fi
+    printf '%s\n' "$line" >>"$tmp"
+  done <"$file"
+  if [[ $changed -eq 1 ]]; then
+    mv -f -- "$tmp" "$file"
+    return 0
+  fi
+  rm -f -- "$tmp"
+  return 1
+}
+
+append_new_lines() {
+  local file=$1
+  shift
+  local line
+  local -a missing=()
+  for line in "$@"; do
+    if [[ -f $file ]] && grep -qxF -- "$line" "$file"; then
+      log "already present in $file: $line"
+      continue
+    fi
+    missing+=("$line")
+  done
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    return 1
+  fi
+  {
+    printf '\n'
+    printf '%s\n' "${missing[@]}"
+  } >>"$file"
+  return 0
+}
+
+hyprland_is_running() {
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+    return 0
+  fi
+  if command -v pgrep >/dev/null 2>&1 && pgrep -x Hyprland >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+maybe_reload_hyprland() {
+  if [[ $HYPR_RELOAD -eq 0 ]]; then
+    return 0
+  fi
+  if ! hyprland_is_running; then
+    log "Hyprland is not running. Bindings apply on the next login."
     return 0
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
-    log "would append to $BINDINGS: $BIND_LINE"
-    changed "Hyprland binding SUPER + ALT + F"
-    HYPR_RELOAD=1
+    log "dry-run: would run hyprctl reload"
     return 0
   fi
-  mkdir -p "$dir"
-  if [[ ! -f $BINDINGS ]]; then
-    printf '%s\n' "-- Personal bindings. Loaded after Omarchy defaults." >"$BINDINGS"
+  if ! command -v hyprctl >/dev/null 2>&1; then
+    log "hyprctl is not on PATH. Bindings apply on the next login."
+    return 0
   fi
-  printf '\n%s\n' "$BIND_LINE" >>"$BINDINGS"
-  changed "added SUPER + ALT + F in $BINDINGS"
-  HYPR_RELOAD=1
+  if hyprctl reload; then
+    HYPR_RELOADED=1
+    changed "reloaded Hyprland"
+  else
+    log "WARNING: hyprctl reload failed. $BINDINGS was still updated."
+  fi
+}
+
+partition_field() {
+  local field=$1
+  local dev=$2
+  lsblk -no "$field" "$dev" 2>/dev/null | awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' || true
 }
 
 partition_fstype() {
-  lsblk -no FSTYPE "$1" 2>/dev/null | awk 'NF { print; exit }'
+  partition_field FSTYPE "$1"
 }
 
 partition_label() {
-  lsblk -no LABEL "$1" 2>/dev/null | awk 'NF { print; exit }'
+  partition_field LABEL "$1"
+}
+
+partition_type() {
+  partition_field TYPE "$1"
+}
+
+partition_pkname() {
+  partition_field PKNAME "$1"
+}
+
+partition_uuid() {
+  local dev=$1
+  local uuid attempt
+  for attempt in 1 2; do
+    uuid=$(blkid -c /dev/null -o value -s UUID -- "$dev" 2>/dev/null | awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' || true)
+    if [[ -z $uuid ]] && sudo -n true 2>/dev/null; then
+      uuid=$(sudo -n blkid -c /dev/null -o value -s UUID -- "$dev" 2>/dev/null | awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' || true)
+    fi
+    if [[ -n $uuid ]]; then
+      break
+    fi
+    if [[ $attempt -eq 1 ]] && command -v udevadm >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+      sudo -n udevadm settle || true
+    fi
+  done
+  printf '%s\n' "$uuid"
+}
+
+data_disk_name() {
+  local path=$DATA_PART
+  local base
+  if [[ -e $path ]]; then
+    path=$(readlink -f -- "$path")
+  fi
+  base=${path##*/}
+  if [[ $base =~ ^(nvme[0-9]+n[0-9]+)p[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if [[ $base =~ ^(mmcblk[0-9]+)p[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
 }
 
 refuse_protected_mount() {
@@ -770,79 +1041,280 @@ refuse_protected_mount() {
     [[ -n $target ]] || continue
     case $target in
       / | /boot | /boot/* | /efi | /efi/* | /home | /home/*)
-        die "refusing to format $part because it is mounted at $target"
+        die "refusing to change $part because it is mounted at $target"
         ;;
     esac
-  done < <(findmnt -nro TARGET "$part" 2>/dev/null || true)
+  done < <(findmnt -nro TARGET -- "$part" 2>/dev/null || true)
 }
 
-ensure_data_fstab() {
-  local uuid line
-  uuid=$(lsblk -no UUID "$DATA_PART" | awk 'NF { print; exit }')
-  [[ -n $uuid ]] || die "could not read a UUID for $DATA_PART"
-  line="UUID=${uuid} ${DATA_MOUNT} btrfs ${FSTAB_OPTIONS} 0 0"
-  if grep -Eq "^UUID=${uuid}[[:space:]]+${DATA_MOUNT}[[:space:]]+" /etc/fstab; then
-    log "fstab already mounts $DATA_MOUNT from this UUID"
-  elif grep -Eq "[[:space:]]${DATA_MOUNT}[[:space:]]" /etc/fstab; then
-    die "/etc/fstab already has an entry for $DATA_MOUNT with a different source. Not adding another."
-  elif [[ $DRY_RUN -eq 1 ]]; then
-    log "would append to /etc/fstab: $line"
-    changed "fstab entry for $DATA_MOUNT"
+refuse_small_data_partition() {
+  local size
+  size=$(lsblk -bno SIZE "$DATA_PART" 2>/dev/null | awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' || true)
+  if [[ ! $size =~ ^[0-9]+$ ]]; then
+    die "could not read the size of $DATA_PART. Not formatting it."
+  fi
+  # nvme1n1p1 is 1M and nvme1n1p2 is 15M. The Data partition is about 1.8T.
+  if ((size < 1073741824)); then
+    die "$DATA_PART is only ${size} bytes. Refusing to format a small partition."
+  fi
+}
+
+validate_data_partition() {
+  local type pk expected
+  type=$(partition_type "$DATA_PART")
+  [[ $type == part ]] || die "$DATA_PART is not a partition (lsblk TYPE=${type:-unknown}). Refusing to change it."
+  if ! expected=$(data_disk_name); then
+    die "could not derive the parent disk from $DATA_PART"
+  fi
+  pk=$(partition_pkname "$DATA_PART")
+  [[ -n $pk ]] || die "could not read the parent disk of $DATA_PART. Refusing to change it."
+  [[ $pk == "$expected" ]] || die "$DATA_PART parent is '$pk', not $expected. Refusing to change it."
+  [[ $pk != nvme0n1 ]] || die "refusing to change a partition of nvme0n1, the encrypted OS disk"
+  refuse_protected_mount "$DATA_PART"
+}
+
+filesystem_is_ntfs() {
+  local fstype=${1,,}
+  [[ $fstype == ntfs || $fstype == ntfs3 ]]
+}
+
+mount_options_have_subvol() {
+  local target=$1
+  local name=$2
+  local opts
+  opts=$(findmnt -nro OPTIONS -- "$target" 2>/dev/null || true)
+  case ,$opts, in
+    *",subvol=/${name},"* | *",subvol=${name},"*) return 0 ;;
+  esac
+  return 1
+}
+
+subvolume_listed_at() {
+  local target=$1
+  local name=$2
+  local listed
+  command -v btrfs >/dev/null 2>&1 || return 1
+  listed=$(btrfs subvolume list -- "$target" 2>/dev/null || true)
+  [[ -n $listed ]] || return 1
+  awk -v n="$name" '$NF == n { found = 1 } END { exit found ? 0 : 1 }' <<<"$listed"
+}
+
+probe_subvolume_readonly() {
+  local name=$1
+  local tmp found
+  found=1
+  tmp=$(mktemp -d)
+  if ! sudo mount -o ro,subvolid=5 -- "$DATA_PART" "$tmp" 2>/dev/null; then
+    if ! sudo mount -o ro -- "$DATA_PART" "$tmp" 2>/dev/null; then
+      rmdir -- "$tmp" || true
+      return 1
+    fi
+  fi
+  if [[ -d $tmp/$name ]] || subvolume_listed_at "$tmp" "$name"; then
+    found=0
+  fi
+  sudo umount "$tmp" || true
+  rmdir -- "$tmp" || true
+  return "$found"
+}
+
+data_has_subvolume() {
+  local name=$1
+  local target
+  if mount_options_have_subvol "$DATA_MOUNT" "$name"; then
     return 0
-  else
-    printf '%s\n' "$line" | sudo tee -a /etc/fstab >/dev/null
-    changed "added fstab entry for $DATA_MOUNT ($FSTAB_OPTIONS)"
+  fi
+  while IFS= read -r target; do
+    [[ -n $target ]] || continue
+    if mount_options_have_subvol "$target" "$name"; then
+      return 0
+    fi
+    if subvolume_listed_at "$target" "$name"; then
+      return 0
+    fi
+  done < <(findmnt -nro TARGET -- "$DATA_PART" 2>/dev/null || true)
+  # Dry-run does not mount. A stub can answer `btrfs subvolume list <dev>`.
+  if subvolume_listed_at "$DATA_PART" "$name"; then
+    return 0
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
+    return 1
+  fi
+  probe_subvolume_readonly "$name"
+}
+
+fstab_has_mount() {
+  local mount=$1
+  local file=$2
+  [[ -f $file ]] || return 1
+  awk -v m="$mount" '
+    /^[[:space:]]*#/ { next }
+    {
+      for (i = 1; i <= NF; i++) if ($i == m) { found = 1; exit }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$file"
+}
+
+fstab_mount_has_subvol() {
+  local mount=$1
+  local file=$2
+  local needle="subvol=/${DATA_SUBVOL}"
+  awk -v m="$mount" -v needle="$needle" '
+    /^[[:space:]]*#/ { next }
+    {
+      hit = 0
+      for (i = 1; i <= NF; i++) if ($i == m) hit = 1
+      if (hit && index($0, needle) > 0) { found = 1; exit }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$file"
+}
+
+data_fstab_line() {
+  printf 'UUID=%s  %s  btrfs  %s  0 0' "$1" "$DATA_MOUNT" "$FSTAB_OPTIONS"
+}
+
+ensure_data_bookmark() {
+  local file uri line
+  file=$GTK_BOOKMARKS
+  uri="file://${DATA_MOUNT}"
+  line="$uri $DATA_LABEL"
+  if [[ -f $file ]] && grep -qxF -- "$line" "$file"; then
+    log "bookmark already present in $file"
     return 0
   fi
-  sudo mkdir -p "$DATA_MOUNT"
-  if ! findmnt -M "$DATA_MOUNT" >/dev/null 2>&1; then
-    sudo mount "$DATA_MOUNT"
+  if [[ -f $file ]] && awk -v uri="$uri" '$1 == uri { found = 1 } END { exit found ? 0 : 1 }' "$file"; then
+    log "a bookmark for $uri is already in $file. Not adding a second one."
+    return 0
   fi
-  sudo chown "$USER:$USER" "$DATA_MOUNT"
+  ensure_line "$file" "$line"
+}
+
+ensure_data_mount() {
+  local uuid line owner
+  command -v blkid >/dev/null 2>&1 || die "blkid is required to read the UUID of $DATA_PART"
+  uuid=$(partition_uuid "$DATA_PART")
+  [[ -n $uuid ]] || die "could not read a UUID for $DATA_PART via blkid"
+  line=$(data_fstab_line "$uuid")
+
+  run sudo mkdir -p -- "$DATA_MOUNT"
+
+  if fstab_has_mount "$DATA_MOUNT" "$FSTAB_FILE"; then
+    log "fstab already has an entry for $DATA_MOUNT"
+    if ! fstab_mount_has_subvol "$DATA_MOUNT" "$FSTAB_FILE"; then
+      log "WARNING: the existing $DATA_MOUNT line does not set subvol=/${DATA_SUBVOL}. Not changing it."
+    fi
+  elif [[ $DRY_RUN -eq 1 ]]; then
+    log "would append to $FSTAB_FILE: $line"
+    changed "fstab entry for $DATA_MOUNT"
+  else
+    printf '%s\n' "$line" | sudo tee -a "$FSTAB_FILE" >/dev/null
+    changed "added fstab entry for $DATA_MOUNT"
+  fi
+
+  run sudo systemctl daemon-reload
+  if findmnt -M "$DATA_MOUNT" >/dev/null 2>&1; then
+    log "$DATA_MOUNT is already mounted"
+  else
+    run sudo mount -- "$DATA_MOUNT"
+    changed "mounted $DATA_MOUNT"
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    run sudo chown "$USER:$USER" -- "$DATA_MOUNT"
+  else
+    owner=$(stat -c '%U:%G' -- "$DATA_MOUNT" 2>/dev/null || true)
+    if [[ $owner == "$USER:$USER" ]]; then
+      log "$DATA_MOUNT already owned by $USER"
+    else
+      sudo chown "$USER:$USER" -- "$DATA_MOUNT"
+      changed "chown $USER:$USER $DATA_MOUNT"
+    fi
+  fi
+  ensure_data_bookmark
+}
+
+mount_and_create_subvolume() {
+  local dev=$1
+  local tmp
+  tmp=$(mktemp -d)
+  # Top-level tree (subvolid 5) so @data is created at the filesystem root.
+  # `btrfs subvolume create @data` is the same command with this directory as cwd.
+  if sudo mount -o subvolid=5 -- "$dev" "$tmp"; then
+    :
+  elif sudo mount -- "$dev" "$tmp"; then
+    :
+  else
+    rmdir -- "$tmp" || true
+    die "could not mount $dev to create $DATA_SUBVOL"
+  fi
+  if [[ -d $tmp/$DATA_SUBVOL ]]; then
+    log "$DATA_SUBVOL already exists on $dev"
+  elif sudo btrfs subvolume create -- "$tmp/$DATA_SUBVOL"; then
+    log "created $DATA_SUBVOL with: btrfs subvolume create @data"
+    changed "created subvolume $DATA_SUBVOL on $dev"
+  else
+    sudo umount "$tmp" || true
+    rmdir -- "$tmp" || true
+    die "btrfs subvolume create @data failed on $dev"
+  fi
+  if ! sudo umount "$tmp"; then
+    die "could not unmount $tmp after creating $DATA_SUBVOL"
+  fi
+  rmdir -- "$tmp" || log "WARNING: could not remove $tmp"
+}
+
+create_missing_data_subvolume() {
+  log "$DATA_PART is already Btrfs labeled $DATA_LABEL. Not running mkfs."
+  log "Creating the missing $DATA_SUBVOL subvolume. This does not erase the filesystem."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "dry-run: would mount $DATA_PART, run 'btrfs subvolume create @data', and unmount"
+    changed "create subvolume $DATA_SUBVOL on $DATA_PART"
+    return 0
+  fi
+  command -v btrfs >/dev/null 2>&1 || die "btrfs is not installed (btrfs-progs)"
+  mount_and_create_subvolume "$DATA_PART"
 }
 
 step_reformat_data() {
+  local fstype=$1
+  local label=$2
+  local answer mounts
+  fstype=${fstype,,}
   step "Reformat NTFS Data partition"
-  local fstype label answer mounts
   log "********************************************************************"
   log "* DATA LOSS: this step destroys every file on $DATA_PART."
-  log "* The NTFS filesystem is replaced by a new empty Btrfs volume."
-  log "* Label: $DATA_LABEL. Mount: $DATA_MOUNT ($FSTAB_OPTIONS)."
+  log "* The filesystem (${fstype:-unknown}, label '${label:-none}') is"
+  log "* replaced by a new empty Btrfs volume labeled $DATA_LABEL."
+  log "* Subvolume: $DATA_SUBVOL. Mount: $DATA_MOUNT."
+  log "* Options: $FSTAB_OPTIONS."
   log "* There is no recovery after mkfs.btrfs runs."
   log "********************************************************************"
 
-  if [[ ! -b $DATA_PART ]]; then
-    die "$DATA_PART is not a block device on this machine. Nothing was formatted."
+  if [[ $fstype == crypto_luks || $fstype == lvm2_member ]]; then
+    die "$DATA_PART is $fstype. Refusing to format it."
   fi
-  if [[ $(lsblk -no TYPE "$DATA_PART" | awk 'NF { print; exit }') != "part" ]]; then
-    die "$DATA_PART is not a partition. Refusing to format it."
-  fi
-  if [[ $(lsblk -no PKNAME "$DATA_PART" | awk 'NF { print; exit }') != "nvme0n1" ]]; then
-    die "$DATA_PART is not a partition of nvme0n1. Refusing to format it."
-  fi
-  refuse_protected_mount "$DATA_PART"
-
-  fstype=$(partition_fstype "$DATA_PART")
-  label=$(partition_label "$DATA_PART")
-  fstype=${fstype,,}
-  if [[ $fstype == "btrfs" && $label == "$DATA_LABEL" ]]; then
-    log "$DATA_PART is already Btrfs labeled $DATA_LABEL. Checking fstab only."
-    ensure_data_fstab
-    return 0
-  fi
-  if [[ $fstype != "ntfs" && $fstype != "ntfs3" ]]; then
+  if ! filesystem_is_ntfs "$fstype"; then
     die "$DATA_PART filesystem is '${fstype:-unknown}', not NTFS. Refusing to format it."
   fi
+  refuse_small_data_partition
 
   if [[ $DRY_RUN -eq 1 ]]; then
     log "dry-run: would require the typed confirmation '$DATA_CONFIRM'"
-    log "dry-run: would umount $DATA_PART if mounted, then mkfs.btrfs -L $DATA_LABEL -f"
-    changed "reformat $DATA_PART from NTFS to Btrfs"
+    log "dry-run: would umount $DATA_PART if mounted, then mkfs.btrfs -f -L $DATA_LABEL $DATA_PART"
+    log "dry-run: would mount it, run 'btrfs subvolume create @data', and unmount"
+    log "dry-run: would read the new UUID with blkid and append the $DATA_MOUNT fstab line ($FSTAB_OPTIONS)"
+    changed "reformat $DATA_PART from NTFS to Btrfs labeled $DATA_LABEL with subvolume $DATA_SUBVOL"
+    DATA_READY=1
     return 0
   fi
 
+  if [[ ! -b $DATA_PART ]]; then
+    die "$DATA_PART is not a block device. Nothing was formatted."
+  fi
+  command -v mkfs.btrfs >/dev/null 2>&1 || die "mkfs.btrfs is not installed (btrfs-progs)"
+  command -v btrfs >/dev/null 2>&1 || die "btrfs is not installed (btrfs-progs)"
   if [[ ! -r /dev/tty ]]; then
     die "the reformat needs a terminal so the confirmation can be typed."
   fi
@@ -852,22 +1324,208 @@ step_reformat_data() {
     die "confirmation did not match. $DATA_PART was not formatted."
   fi
 
-  # Re-check after the prompt. The device must still be the NTFS partition.
   fstype=$(partition_fstype "$DATA_PART")
   fstype=${fstype,,}
-  if [[ $fstype != "ntfs" && $fstype != "ntfs3" ]]; then
+  if ! filesystem_is_ntfs "$fstype"; then
     die "$DATA_PART changed while waiting (now '${fstype:-unknown}'). Not formatting it."
   fi
   refuse_protected_mount "$DATA_PART"
-  mounts=$(findmnt -nro TARGET "$DATA_PART" || true)
+  refuse_small_data_partition
+  mounts=$(findmnt -nro TARGET -- "$DATA_PART" || true)
   if [[ -n $mounts ]]; then
     log "unmounting $DATA_PART ($mounts)"
     sudo umount "$DATA_PART"
   fi
-  command -v mkfs.btrfs >/dev/null 2>&1 || die "mkfs.btrfs is not installed"
-  sudo mkfs.btrfs -L "$DATA_LABEL" -f -- "$DATA_PART"
+  sudo mkfs.btrfs -f -L "$DATA_LABEL" -- "$DATA_PART"
   changed "formatted $DATA_PART as Btrfs labeled $DATA_LABEL"
-  ensure_data_fstab
+  mount_and_create_subvolume "$DATA_PART"
+  ensure_data_mount
+  DATA_READY=1
+}
+
+step_data_drive() {
+  local fstype label part_type
+  step "Data drive (${DATA_PART} -> ${DATA_MOUNT})"
+  DATA_READY=0
+  command -v lsblk >/dev/null 2>&1 || die "lsblk is required to identify $DATA_PART"
+  case $(basename -- "$DATA_PART") in
+    nvme1n1p1 | nvme1n1p2)
+      die "$DATA_PART is a leftover Windows partition and is left untouched."
+      ;;
+  esac
+
+  fstype=$(partition_fstype "$DATA_PART")
+  label=$(partition_label "$DATA_PART")
+  part_type=$(partition_type "$DATA_PART")
+  fstype=${fstype,,}
+
+  if [[ -z $part_type && -z $fstype ]]; then
+    if [[ $REFORMAT_DATA -eq 1 ]]; then
+      die "$DATA_PART is not visible to lsblk. Nothing was formatted."
+    fi
+    log "WARNING: $DATA_PART is not visible to lsblk. Skipping the Data drive. Nothing was formatted."
+    return 0
+  fi
+  validate_data_partition
+  if [[ -z $fstype ]]; then
+    if [[ $REFORMAT_DATA -eq 0 ]]; then
+      log "WARNING: $DATA_PART has no filesystem."
+      log "Skipping the Data drive. Nothing was formatted. --reformat-data only replaces NTFS."
+      return 0
+    fi
+    die "$DATA_PART has no filesystem, not NTFS. Refusing to format it."
+  fi
+
+  if [[ $fstype == btrfs && $label == "$DATA_LABEL" ]]; then
+    if data_has_subvolume "$DATA_SUBVOL"; then
+      log "$DATA_PART is Btrfs labeled $DATA_LABEL with subvolume $DATA_SUBVOL."
+      if [[ $REFORMAT_DATA -eq 1 ]]; then
+        log "Layout already matches. Not formatting again."
+      fi
+      ensure_data_mount
+      DATA_READY=1
+      return 0
+    fi
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: $DATA_PART is Btrfs labeled $DATA_LABEL, but $DATA_SUBVOL was not listed without mounting."
+      log "dry-run: a real run mounts it read-only to look for the subvolume and does not format when that subvolume is there."
+      if [[ $REFORMAT_DATA -eq 0 ]]; then
+        log "dry-run: if $DATA_SUBVOL is missing, the Data drive is skipped with a warning. Nothing would be formatted."
+      else
+        log "dry-run: if $DATA_SUBVOL is missing, --reformat-data would create it and would not run mkfs."
+      fi
+      log "dry-run: the ${DATA_MOUNT} mount and the Steam library step run only after ${DATA_SUBVOL} is confirmed."
+      return 0
+    fi
+    if [[ $REFORMAT_DATA -eq 0 ]]; then
+      log "WARNING: $DATA_PART is Btrfs labeled $DATA_LABEL but has no $DATA_SUBVOL subvolume."
+      log "Skipping the Data drive. Nothing was formatted. Pass --reformat-data to create the subvolume without erasing the filesystem."
+      return 0
+    fi
+    create_missing_data_subvolume
+    ensure_data_mount
+    DATA_READY=1
+    return 0
+  fi
+
+  if [[ $REFORMAT_DATA -eq 0 ]]; then
+    log "WARNING: $DATA_PART filesystem is '${fstype:-unknown}', label '${label:-none}'."
+    log "It is not Btrfs labeled $DATA_LABEL with subvolume $DATA_SUBVOL."
+    log "Skipping the Data drive. Nothing was formatted. Pass --reformat-data to erase an NTFS filesystem on it and create the Data volume."
+    return 0
+  fi
+  step_reformat_data "$fstype" "$label"
+}
+
+note_steam_library_manual() {
+  log "Add ${DATA_MOUNT}/SteamLibrary in Steam > Settings > Storage and make it the default."
+  log "This script does not write a new libraryfolders.vdf entry."
+}
+
+steam_is_running() {
+  if command -v pgrep >/dev/null 2>&1 && pgrep -x steam >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+rewrite_steam_library_path() {
+  local file=$1
+  local old=$2
+  local new=$3
+  local tmp
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to edit $file"
+  tmp=$(mktemp)
+  OLD_PATH="$old" NEW_PATH="$new" python3 - "$file" "$tmp" <<'PY'
+import os
+import pathlib
+import sys
+
+src, dst = sys.argv[1:]
+text = pathlib.Path(src).read_text()
+old = os.environ["OLD_PATH"]
+new = os.environ["NEW_PATH"]
+if old not in text:
+    raise SystemExit(1)
+pathlib.Path(dst).write_text(text.replace(old, new))
+PY
+  chmod --reference="$file" "$tmp"
+  mv -f -- "$tmp" "$file"
+}
+
+step_steam_library() {
+  local lib apps old new vdf bak
+  step "Steam library on ${DATA_MOUNT}"
+  lib="${DATA_MOUNT}/SteamLibrary"
+  apps="${lib}/steamapps"
+  old="/run/media/${USER}/Data/SteamLibrary"
+  new=$lib
+  vdf=$STEAM_LIBRARY_VDF
+
+  if [[ $DATA_READY -ne 1 ]]; then
+    log "Skipped. ${DATA_MOUNT} is not the Data drive, so the Steam library was not created."
+    return 0
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "dry-run: would mkdir -p $apps"
+    log "dry-run: would chown $USER:$USER $lib $apps"
+  elif [[ -d $apps ]]; then
+    log "$apps already exists"
+  else
+    mkdir -p -- "$apps"
+    changed "created $apps"
+  fi
+  if [[ $DRY_RUN -eq 0 ]]; then
+    if ! chown "$USER:$USER" -- "$lib" "$apps"; then
+      sudo chown "$USER:$USER" -- "$lib" "$apps"
+    fi
+  fi
+
+  if [[ ! -f $vdf ]]; then
+    log "No Steam libraryfolders.vdf at $vdf."
+    note_steam_library_manual
+    return 0
+  fi
+
+  if steam_is_running; then
+    log "Steam is running, so $vdf was not changed."
+    if grep -qF -- "$new" "$vdf"; then
+      log "$new is already in $vdf."
+    else
+      if grep -qF -- "$old" "$vdf"; then
+        log "Quit Steam and run ./post-install.sh again to rewrite $old to $new."
+      fi
+      note_steam_library_manual
+    fi
+    return 0
+  fi
+
+  if grep -qF -- "$old" "$vdf"; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: would back up $vdf and replace $old with $new"
+      changed "rewrite Steam library path $old to $new"
+    else
+      bak="${vdf}.bak.$(date +%Y%m%d-%H%M%S)"
+      if [[ -e $bak ]]; then
+        bak="${bak}.$$"
+      fi
+      cp -a -- "$vdf" "$bak"
+      log "backed up $vdf to $bak"
+      rewrite_steam_library_path "$vdf" "$old" "$new"
+      changed "rewrote Steam library path $old to $new"
+    fi
+  fi
+
+  if grep -qF -- "$new" "$vdf"; then
+    log "Steam library path $new is present"
+    return 0
+  fi
+  if [[ $DRY_RUN -eq 1 ]] && grep -qF -- "$old" "$vdf"; then
+    log "Steam library path $new would be present after the rewrite"
+    return 0
+  fi
+  note_steam_library_manual
 }
 
 reboot_reason() {
@@ -911,7 +1569,13 @@ step_summary() {
     done
   fi
   if [[ $HYPR_RELOAD -eq 1 ]]; then
-    log "Hyprland reload: the new binding is read on the next 'hyprctl reload' or login. A reboot is not required for that file."
+    if [[ $HYPR_RELOADED -eq 1 ]]; then
+      log "Hyprland reload: hyprctl reload ran. A reboot is not required for bindings.lua."
+    elif [[ $DRY_RUN -eq 1 ]]; then
+      log "Hyprland reload: dry-run did not reload. A reboot is not required for bindings.lua."
+    else
+      log "Hyprland reload: bindings.lua changed. Hyprland was not reloaded. A reboot is not required for that file."
+    fi
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
     log "Reboot: not evaluated. omarchy update -y reports one when a real run needs it."
@@ -968,12 +1632,8 @@ main() {
   step_plugins
   step_rawmakase
   step_bindings
-  if [[ $REFORMAT_DATA -eq 1 ]]; then
-    step_reformat_data
-  else
-    step "NTFS data partition"
-    log "Skipped. Pass --reformat-data to reformat $DATA_PART. That flag destroys the filesystem on it."
-  fi
+  step_data_drive
+  step_steam_library
   step_summary
 }
 
