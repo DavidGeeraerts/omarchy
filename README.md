@@ -102,7 +102,7 @@ Do this on the first login, while the laptop is still at home. The repo is publi
 
 The first step rotates those temporary credentials before any package work. If the `maquis` hash in `/etc/shadow` still matches `2ChangeMe!`, the script runs `passwd`. If a LUKS device still opens with that passphrase (`cryptsetup open --test-passphrase`), it prints the current passphrase and runs `sudo cryptsetup luksChangeKey` on each such device. `passwd` does not change the disk passphrase, which is why the LUKS command is separate. It then locks `root` with `sudo passwd -l root` when `passwd -S root` says the account is not already locked. A second run skips `passwd` and `luksChangeKey` once those checks show the temporary password is gone, and it leaves `root` locked. `--dry-run` prints that plan and does not change the password, the passphrase, or the lock.
 
-`./post-install.sh` then updates via `omarchy update -y` and, next, installs `omarchy-agents-nostarters` and runs it so the Agents bar drops the three "Make something cool" starter tiles. It installs geeqie, Steam (through Omarchy's lib32 driver step, then `omarchy pkg add steam`), and `nvidia-prime` (`prime-run`). VLC is optional and the install line is commented out. It sets `hwdec=vaapi` for mpv, points Sony ARW/SR2/SRF at Geeqie, installs and enables Matrix Screens with the screensaver on, enables Pulse, and installs the latest RAWmakase `.pkg.tar.zst` after `SHA256SUMS`. On a Dell machine it then disables the touchscreen through `dell-wmi-sysman`, as described in the BIOS checklist above. That firmware change needs a reboot.
+`./post-install.sh` then updates via `omarchy update -y` and, next, installs `omarchy-agents-nostarters` and runs it so the Agents bar drops the three "Make something cool" starter tiles. It installs geeqie, Anki (`anki` from Arch extra), Steam (through Omarchy's lib32 driver step, then `omarchy pkg add steam`), and `nvidia-prime` (`prime-run`). Anki is installed by post-install.sh, or run `sudo pacman -S anki`. The script does not open Anki. It prints the path of `flashcards/*.apkg` so you can import it with File → Import. VLC is optional and the install line is commented out. It sets `hwdec=vaapi` for mpv, points Sony ARW/SR2/SRF at Geeqie, installs and enables Matrix Screens with the screensaver on, enables Pulse, and installs the latest RAWmakase `.pkg.tar.zst` after `SHA256SUMS`. On a Dell machine it then disables the touchscreen through `dell-wmi-sysman`, as described in the BIOS checklist above. That firmware change needs a reboot.
 
 ### Agents panel
 
@@ -159,7 +159,7 @@ A log is appended to `~/.local/state/omarchy-playbook/post-install.log`. The scr
 
 ### Flash cards
 
-Printable 3×5 index cards and an Anki deck for every binding, including the two Grok overrides above, are in [flashcards/README.md](flashcards/README.md). They were generated from the Omarchy 4.5.0-3 Hyprland Lua files in `flashcards/source/`.
+Printable 3×5 index cards and an Anki deck for every binding, including the two Grok overrides above, are in [flashcards/README.md](flashcards/README.md). They were generated from the Omarchy 4.5.0-3 Hyprland Lua files in `flashcards/source/`. Anki is installed by post-install.sh, or run `sudo pacman -S anki`.
 
 ## Sources
 
