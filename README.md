@@ -157,6 +157,10 @@ o.rebind("SUPER + SHIFT + A", "Grok", { webapp = "https://grok.com" })
 
 A log is appended to `~/.local/state/omarchy-playbook/post-install.log`. The script ends with what changed and whether a reboot is needed. A bindings change does not need a reboot. Disabling the touchscreen does: `dell-wmi-sysman` keeps it in `pending_reboot` until the next boot.
 
+### Flash cards
+
+Printable 3×5 index cards and an Anki deck for every binding, including the two Grok overrides above, are in [flashcards/README.md](flashcards/README.md). They were generated from the Omarchy 4.5.0-3 Hyprland Lua files in `flashcards/source/`.
+
 ## Sources
 
 - [Omarchy manual](https://omarchy.org/manual/), including [Unattended installs](https://omarchy.org/manual/unattended-installs/)

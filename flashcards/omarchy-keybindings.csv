@@ -1,0 +1,259 @@
+keys,action,category,group,detail,tags,raw_keys,source,line,personal
+SUPER + Enter,Terminal,Applications,Essential application bindings,,applications essential,SUPER + RETURN,applications.lua,2,no
+SUPER + SHIFT + Enter,Browser,Applications,Essential application bindings,omarchy: browser.,applications essential,SUPER + SHIFT + RETURN,applications.lua,3,no
+SUPER + SHIFT + F,File manager,Applications,Essential application bindings,omarchy: nautilus.,applications essential,SUPER + SHIFT + F,applications.lua,4,no
+SUPER + ALT + SHIFT + F,File manager (cwd),Applications,Essential application bindings,omarchy: nautilus-cwd.,applications essential,SUPER + ALT + SHIFT + F,applications.lua,5,no
+SUPER + SHIFT + B,Browser,Applications,Essential application bindings,omarchy: browser.,applications essential,SUPER + SHIFT + B,applications.lua,6,no
+SUPER + SHIFT + ALT + B,Browser (private),Applications,Essential application bindings,omarchy: browser --private.,applications essential,SUPER + SHIFT + ALT + B,applications.lua,7,no
+SUPER + SHIFT + N,Editor,Applications,Essential application bindings,omarchy: editor.,applications essential,SUPER + SHIFT + N,applications.lua,8,no
+SUPER + ALT + Enter,Tmux,Applications,Preinstalled apps,omarchy: terminal-tmux.,applications preinstalled,SUPER + ALT + RETURN,applications.lua,12,no
+SUPER + CTRL + Enter,Herdr,Applications,Preinstalled apps,omarchy: terminal-herdr.,applications preinstalled,SUPER + CTRL + RETURN,applications.lua,13,no
+SUPER + SHIFT + Q,Calculator,Applications,Preinstalled apps,omacalc.,applications preinstalled,SUPER + SHIFT + Q,applications.lua,14,no
+Calc,Calculator,Applications,Preinstalled apps,omacalc.,applications preinstalled,XF86Calculator,applications.lua,15,no
+SUPER + SHIFT + M,Music,Applications,Preinstalled apps,omarchy: spotify.,applications preinstalled,SUPER + SHIFT + M,applications.lua,16,no
+SUPER + SHIFT + ALT + M,Music TUI,Applications,Preinstalled apps,tui: cliamp.,applications preinstalled,SUPER + SHIFT + ALT + M,applications.lua,17,no
+SUPER + SHIFT + D,Docker,Applications,Preinstalled apps,tui: omarchy-launch-docker-tui. Only while lazydocker is installed.,applications preinstalled conditional-lazydocker,SUPER + SHIFT + D,applications.lua,19,no
+SUPER + SHIFT + G,Signal,Applications,Preinstalled apps,omarchy: signal.,applications preinstalled,SUPER + SHIFT + G,applications.lua,21,no
+SUPER + SHIFT + O,Obsidian,Applications,Preinstalled apps,launch: obsidian.,applications preinstalled,SUPER + SHIFT + O,applications.lua,22,no
+SUPER + SHIFT + W,Omawrite,Applications,Preinstalled apps,launch: omawrite.,applications preinstalled,SUPER + SHIFT + W,applications.lua,23,no
+SUPER + SHIFT + /,Passwords,Applications,Preinstalled apps,omarchy: 1password.,applications preinstalled,SUPER + SHIFT + SLASH,applications.lua,24,no
+SUPER + SHIFT + A,Grok,Applications,Preinstalled apps,webapp: https://grok.com. Personal binding.,applications preinstalled personal,SUPER + SHIFT + A,user-bindings.lua,31,yes
+SUPER + SHIFT + ALT + A,Grok Bot,Applications,Preinstalled apps,launch: grok-bot. Personal binding. Launch Grok Bot instead of the Grok web app.,applications preinstalled personal,SUPER + SHIFT + ALT + A,user-bindings.lua,30,yes
+SUPER + SHIFT + C,Calendar (web app),Applications,Preinstalled apps,webapp: https://app.hey.com/calendar/weeks/.,applications preinstalled,SUPER + SHIFT + C,applications.lua,28,no
+SUPER + SHIFT + E,Email,Applications,Preinstalled apps,webapp: https://app.hey.com.,applications preinstalled,SUPER + SHIFT + E,applications.lua,29,no
+SUPER + SHIFT + ALT + E,New email,Applications,Preinstalled apps,webapp: https://app.hey.com/messages/new?display=standalone&new_window=true.,applications preinstalled,SUPER + SHIFT + ALT + E,applications.lua,30,no
+SUPER + SHIFT + Y,YouTube,Applications,Preinstalled apps,webapp: https://youtube.com/.,applications preinstalled,SUPER + SHIFT + Y,applications.lua,31,no
+SUPER + SHIFT + ALT + G,WhatsApp,Applications,Preinstalled apps,webapp: https://web.whatsapp.com/.,applications preinstalled,SUPER + SHIFT + ALT + G,applications.lua,32,no
+SUPER + SHIFT + CTRL + G,Google Messages,Applications,Preinstalled apps,webapp: https://messages.google.com/web/conversations.,applications preinstalled,SUPER + SHIFT + CTRL + G,applications.lua,33,no
+SUPER + SHIFT + P,Google Photos,Applications,Preinstalled apps,webapp: https://photos.google.com/.,applications preinstalled,SUPER + SHIFT + P,applications.lua,34,no
+SUPER + SHIFT + S,Google Maps,Applications,Preinstalled apps,webapp: https://maps.google.com/.,applications preinstalled,SUPER + SHIFT + S,applications.lua,35,no
+SUPER + SHIFT + X,X,Applications,Preinstalled apps,webapp: https://x.com/.,applications preinstalled,SUPER + SHIFT + X,applications.lua,36,no
+SUPER + SHIFT + ALT + X,X Post,Applications,Preinstalled apps,webapp: https://x.com/compose/post.,applications preinstalled,SUPER + SHIFT + ALT + X,applications.lua,37,no
+SUPER + A,Select all,Clipboard,,,clipboard,SUPER + A,clipboard.lua,9,no
+SUPER + C,Universal copy,Clipboard,,,clipboard,SUPER + C,clipboard.lua,36,no
+SUPER + V,Universal paste,Clipboard,,,clipboard,SUPER + V,clipboard.lua,36,no
+SUPER + X,Universal cut,Clipboard,,,clipboard,SUPER + X,clipboard.lua,9,no
+SUPER + CTRL + V,Clipboard manager,Clipboard,,panel: clipboard.,clipboard,SUPER + CTRL + V,clipboard.lua,49,no
+SUPER + W,Close window,Tiling,,,tiling,SUPER + W,tiling.lua,1,no
+SUPER + Q,Close window,Tiling,,,tiling,SUPER + Q,tiling.lua,2,no
+CTRL + ALT + Del,Close all windows,Tiling,,omarchy-hyprland-window-close-all.,tiling,CTRL + ALT + DELETE,tiling.lua,3,no
+SUPER + J,Toggle window split,Tiling,,,tiling,SUPER + J,tiling.lua,5,no
+SUPER + P,Pseudo window,Tiling,,,tiling,SUPER + P,tiling.lua,6,no
+SUPER + T,Toggle window floating/tiling,Tiling,,,tiling,SUPER + T,tiling.lua,7,no
+SUPER + F,Full screen,Tiling,,,tiling,SUPER + F,tiling.lua,8,no
+SUPER + CTRL + F,Tiled full screen,Tiling,,omarchy-hyprland-window-tiled-fullscreen-toggle.,tiling,SUPER + CTRL + F,tiling.lua,9,no
+SUPER + ALT + F,Full width,Tiling,,,tiling,SUPER + ALT + F,tiling.lua,10,no
+SUPER + O,Pop window out (float & pin),Tiling,,omarchy-hyprland-window-pop.,tiling,SUPER + O,tiling.lua,11,no
+SUPER + ALT + Home,Save window width,Tiling,,omarchy-hyprland-window-width save.,tiling,SUPER + ALT + Home,tiling.lua,12,no
+SUPER + Home,Restore window width,Tiling,,omarchy-hyprland-window-width restore.,tiling,SUPER + Home,tiling.lua,13,no
+SUPER + L,Cycle workspace layout,Tiling,,omarchy-hyprland-workspace-layout-toggle.,tiling,SUPER + L,tiling.lua,14,no
+SUPER + ALT + L,Cycle workspace layout back,Tiling,,omarchy-hyprland-workspace-layout-toggle back.,tiling,SUPER + ALT + L,tiling.lua,15,no
+SUPER + Left,Focus on left window,Tiling,,,tiling,SUPER + LEFT,tiling.lua,17,no
+SUPER + Right,Focus on right window,Tiling,,,tiling,SUPER + RIGHT,tiling.lua,18,no
+SUPER + Up,Focus on above window,Tiling,,,tiling,SUPER + UP,tiling.lua,19,no
+SUPER + Down,Focus on below window,Tiling,,,tiling,SUPER + DOWN,tiling.lua,20,no
+SUPER + 1,Switch to workspace 1,Tiling,,,tiling,SUPER + code:10,tiling.lua,25,no
+SUPER + SHIFT + 1,Move window to workspace 1,Tiling,,,tiling,SUPER + SHIFT + code:10,tiling.lua,26,no
+SUPER + SHIFT + ALT + 1,Move window silently to workspace 1,Tiling,,,tiling,SUPER + SHIFT + ALT + code:10,tiling.lua,27,no
+SUPER + 2,Switch to workspace 2,Tiling,,,tiling,SUPER + code:11,tiling.lua,25,no
+SUPER + SHIFT + 2,Move window to workspace 2,Tiling,,,tiling,SUPER + SHIFT + code:11,tiling.lua,26,no
+SUPER + SHIFT + ALT + 2,Move window silently to workspace 2,Tiling,,,tiling,SUPER + SHIFT + ALT + code:11,tiling.lua,27,no
+SUPER + 3,Switch to workspace 3,Tiling,,,tiling,SUPER + code:12,tiling.lua,25,no
+SUPER + SHIFT + 3,Move window to workspace 3,Tiling,,,tiling,SUPER + SHIFT + code:12,tiling.lua,26,no
+SUPER + SHIFT + ALT + 3,Move window silently to workspace 3,Tiling,,,tiling,SUPER + SHIFT + ALT + code:12,tiling.lua,27,no
+SUPER + 4,Switch to workspace 4,Tiling,,,tiling,SUPER + code:13,tiling.lua,25,no
+SUPER + SHIFT + 4,Move window to workspace 4,Tiling,,,tiling,SUPER + SHIFT + code:13,tiling.lua,26,no
+SUPER + SHIFT + ALT + 4,Move window silently to workspace 4,Tiling,,,tiling,SUPER + SHIFT + ALT + code:13,tiling.lua,27,no
+SUPER + 5,Switch to workspace 5,Tiling,,,tiling,SUPER + code:14,tiling.lua,25,no
+SUPER + SHIFT + 5,Move window to workspace 5,Tiling,,,tiling,SUPER + SHIFT + code:14,tiling.lua,26,no
+SUPER + SHIFT + ALT + 5,Move window silently to workspace 5,Tiling,,,tiling,SUPER + SHIFT + ALT + code:14,tiling.lua,27,no
+SUPER + 6,Switch to workspace 6,Tiling,,,tiling,SUPER + code:15,tiling.lua,25,no
+SUPER + SHIFT + 6,Move window to workspace 6,Tiling,,,tiling,SUPER + SHIFT + code:15,tiling.lua,26,no
+SUPER + SHIFT + ALT + 6,Move window silently to workspace 6,Tiling,,,tiling,SUPER + SHIFT + ALT + code:15,tiling.lua,27,no
+SUPER + 7,Switch to workspace 7,Tiling,,,tiling,SUPER + code:16,tiling.lua,25,no
+SUPER + SHIFT + 7,Move window to workspace 7,Tiling,,,tiling,SUPER + SHIFT + code:16,tiling.lua,26,no
+SUPER + SHIFT + ALT + 7,Move window silently to workspace 7,Tiling,,,tiling,SUPER + SHIFT + ALT + code:16,tiling.lua,27,no
+SUPER + 8,Switch to workspace 8,Tiling,,,tiling,SUPER + code:17,tiling.lua,25,no
+SUPER + SHIFT + 8,Move window to workspace 8,Tiling,,,tiling,SUPER + SHIFT + code:17,tiling.lua,26,no
+SUPER + SHIFT + ALT + 8,Move window silently to workspace 8,Tiling,,,tiling,SUPER + SHIFT + ALT + code:17,tiling.lua,27,no
+SUPER + 9,Switch to workspace 9,Tiling,,,tiling,SUPER + code:18,tiling.lua,25,no
+SUPER + SHIFT + 9,Move window to workspace 9,Tiling,,,tiling,SUPER + SHIFT + code:18,tiling.lua,26,no
+SUPER + SHIFT + ALT + 9,Move window silently to workspace 9,Tiling,,,tiling,SUPER + SHIFT + ALT + code:18,tiling.lua,27,no
+SUPER + 0,Switch to workspace 10,Tiling,,,tiling,SUPER + code:19,tiling.lua,25,no
+SUPER + SHIFT + 0,Move window to workspace 10,Tiling,,,tiling,SUPER + SHIFT + code:19,tiling.lua,26,no
+SUPER + SHIFT + ALT + 0,Move window silently to workspace 10,Tiling,,,tiling,SUPER + SHIFT + ALT + code:19,tiling.lua,27,no
+SUPER + S,Toggle scratchpad,Tiling,,,tiling,SUPER + S,tiling.lua,30,no
+SUPER + ALT + S,Move window to scratchpad,Tiling,,,tiling,SUPER + ALT + S,tiling.lua,31,no
+SUPER + `,Toggle Quake console,Tiling,,,tiling,SUPER + grave,tiling.lua,32,no
+SUPER + M,Minimize window to the dock,Tiling,,omarchy-hyprland-window-minimize.,tiling,SUPER + M,tiling.lua,33,no
+SUPER + SHIFT + `,Move window to Quake console,Tiling,,,tiling,SUPER + SHIFT + grave,tiling.lua,34,no
+SUPER + Tab,Next workspace,Tiling,,,tiling,SUPER + TAB,tiling.lua,36,no
+SUPER + SHIFT + Tab,Previous workspace,Tiling,,,tiling,SUPER + SHIFT + TAB,tiling.lua,37,no
+SUPER + CTRL + Tab,Former workspace,Tiling,,,tiling,SUPER + CTRL + TAB,tiling.lua,38,no
+SUPER + SHIFT + ALT + Left,Move workspace to left monitor,Tiling,,,tiling,SUPER + SHIFT + ALT + LEFT,tiling.lua,40,no
+SUPER + SHIFT + ALT + Right,Move workspace to right monitor,Tiling,,,tiling,SUPER + SHIFT + ALT + RIGHT,tiling.lua,41,no
+SUPER + SHIFT + ALT + Up,Move workspace to up monitor,Tiling,,,tiling,SUPER + SHIFT + ALT + UP,tiling.lua,42,no
+SUPER + SHIFT + ALT + Down,Move workspace to down monitor,Tiling,,,tiling,SUPER + SHIFT + ALT + DOWN,tiling.lua,43,no
+SUPER + SHIFT + CTRL + Left,Move window to left monitor,Tiling,,,tiling,SUPER + SHIFT + CTRL + LEFT,tiling.lua,45,no
+SUPER + SHIFT + CTRL + Right,Move window to right monitor,Tiling,,,tiling,SUPER + SHIFT + CTRL + RIGHT,tiling.lua,46,no
+SUPER + SHIFT + CTRL + Up,Move window to up monitor,Tiling,,,tiling,SUPER + SHIFT + CTRL + UP,tiling.lua,47,no
+SUPER + SHIFT + CTRL + Down,Move window to down monitor,Tiling,,,tiling,SUPER + SHIFT + CTRL + DOWN,tiling.lua,48,no
+SUPER + SHIFT + Left,Swap window to the left,Tiling,,,tiling,SUPER + SHIFT + LEFT,tiling.lua,50,no
+SUPER + SHIFT + Right,Swap window to the right,Tiling,,,tiling,SUPER + SHIFT + RIGHT,tiling.lua,51,no
+SUPER + SHIFT + Up,Swap window up,Tiling,,,tiling,SUPER + SHIFT + UP,tiling.lua,52,no
+SUPER + SHIFT + Down,Swap window down,Tiling,,,tiling,SUPER + SHIFT + DOWN,tiling.lua,53,no
+ALT + SHIFT + Tab,Reveal active window on top,Tiling,,,tiling,ALT + SHIFT + TAB,tiling.lua,57,no
+ALT + Tab,Focus on next window,Tiling,,,tiling,ALT + TAB,tiling.lua,58,no
+ALT + SHIFT + Tab,Focus on previous window,Tiling,,,tiling,ALT + SHIFT + TAB,tiling.lua,59,no
+ALT + Tab,Reveal active window on top,Tiling,,,tiling,ALT + TAB,tiling.lua,60,no
+CTRL + ALT + Tab,Focus on next monitor,Tiling,,,tiling,CTRL + ALT + TAB,tiling.lua,62,no
+CTRL + ALT + SHIFT + Tab,Focus on previous monitor,Tiling,,,tiling,CTRL + ALT + SHIFT + TAB,tiling.lua,63,no
+SUPER + −,Expand window left,Tiling,,,tiling,SUPER + code:20,tiling.lua,65,no
+SUPER + =,Shrink window left,Tiling,,,tiling,SUPER + code:21,tiling.lua,66,no
+SUPER + SHIFT + −,Shrink window up,Tiling,,,tiling,SUPER + SHIFT + code:20,tiling.lua,67,no
+SUPER + SHIFT + =,Expand window down,Tiling,,,tiling,SUPER + SHIFT + code:21,tiling.lua,68,no
+SUPER + ALT + −,Expand window left a little,Tiling,,,tiling,SUPER + ALT + code:20,tiling.lua,70,no
+SUPER + ALT + =,Shrink window left a little,Tiling,,,tiling,SUPER + ALT + code:21,tiling.lua,71,no
+SUPER + SHIFT + ALT + −,Shrink window up a little,Tiling,,,tiling,SUPER + SHIFT + ALT + code:20,tiling.lua,72,no
+SUPER + SHIFT + ALT + =,Expand window down a little,Tiling,,,tiling,SUPER + SHIFT + ALT + code:21,tiling.lua,73,no
+SUPER + CTRL + −,Expand window left a lot,Tiling,,,tiling,SUPER + CTRL + code:20,tiling.lua,75,no
+SUPER + CTRL + =,Shrink window left a lot,Tiling,,,tiling,SUPER + CTRL + code:21,tiling.lua,76,no
+SUPER + CTRL + SHIFT + −,Shrink window up a lot,Tiling,,,tiling,SUPER + CTRL + SHIFT + code:20,tiling.lua,77,no
+SUPER + CTRL + SHIFT + =,Expand window down a lot,Tiling,,,tiling,SUPER + CTRL + SHIFT + code:21,tiling.lua,78,no
+SUPER + Wheel down,Scroll active workspace forward,Tiling,,,tiling mouse,SUPER + mouse_down,tiling.lua,80,no
+SUPER + Wheel up,Scroll active workspace backward,Tiling,,,tiling mouse,SUPER + mouse_up,tiling.lua,81,no
+SUPER + Left click,Move window,Tiling,,Hold and drag.,tiling mouse,SUPER + mouse:272,tiling.lua,83,no
+SUPER + Right click,Resize window,Tiling,,Hold and drag.,tiling mouse,SUPER + mouse:273,tiling.lua,84,no
+SUPER + G,Toggle window grouping,Tiling,,,tiling,SUPER + G,tiling.lua,86,no
+SUPER + ALT + G,Move active window out of group,Tiling,,,tiling,SUPER + ALT + G,tiling.lua,87,no
+SUPER + ALT + Left,Move window to group on left,Tiling,,,tiling,SUPER + ALT + LEFT,tiling.lua,89,no
+SUPER + ALT + Right,Move window to group on right,Tiling,,,tiling,SUPER + ALT + RIGHT,tiling.lua,90,no
+SUPER + ALT + Up,Move window to group on top,Tiling,,,tiling,SUPER + ALT + UP,tiling.lua,91,no
+SUPER + ALT + Down,Move window to group on bottom,Tiling,,,tiling,SUPER + ALT + DOWN,tiling.lua,92,no
+SUPER + ALT + Tab,Next window in group,Tiling,,,tiling,SUPER + ALT + TAB,tiling.lua,94,no
+SUPER + ALT + SHIFT + Tab,Previous window in group,Tiling,,,tiling,SUPER + ALT + SHIFT + TAB,tiling.lua,95,no
+SUPER + CTRL + Left,Move grouped window focus left,Tiling,,,tiling,SUPER + CTRL + LEFT,tiling.lua,97,no
+SUPER + CTRL + Right,Move grouped window focus right,Tiling,,,tiling,SUPER + CTRL + RIGHT,tiling.lua,98,no
+SUPER + ALT + Wheel down,Next window in group,Tiling,,,tiling mouse,SUPER + ALT + mouse_down,tiling.lua,100,no
+SUPER + ALT + Wheel up,Previous window in group,Tiling,,,tiling mouse,SUPER + ALT + mouse_up,tiling.lua,101,no
+SUPER + ALT + 1,Switch to group window 1,Tiling,,,tiling,SUPER + ALT + code:10,tiling.lua,104,no
+SUPER + ALT + 2,Switch to group window 2,Tiling,,,tiling,SUPER + ALT + code:11,tiling.lua,104,no
+SUPER + ALT + 3,Switch to group window 3,Tiling,,,tiling,SUPER + ALT + code:12,tiling.lua,104,no
+SUPER + ALT + 4,Switch to group window 4,Tiling,,,tiling,SUPER + ALT + code:13,tiling.lua,104,no
+SUPER + ALT + 5,Switch to group window 5,Tiling,,,tiling,SUPER + ALT + code:14,tiling.lua,104,no
+SUPER + /,Monitor scaling up,Tiling,,omarchy-hyprland-monitor-scaling up.,tiling,SUPER + SLASH,tiling.lua,107,no
+SUPER + ALT + /,Monitor scaling down,Tiling,,omarchy-hyprland-monitor-scaling down.,tiling,SUPER + ALT + SLASH,tiling.lua,108,no
+SUPER + Space,Omarchy menu,Utilities,,menu: root.,utilities,SUPER + SPACE,utilities.lua,1,no
+SUPER + ALT + Space,Apps,Utilities,,omarchy-shell omarchy.dock apps.,utilities,SUPER + ALT + SPACE,utilities.lua,2,no
+SUPER + CTRL + E,Emojis,Utilities,,panel: emojis.,utilities,SUPER + CTRL + E,utilities.lua,3,no
+SUPER + CTRL + C,Capture menu,Utilities,,menu: capture.,utilities,SUPER + CTRL + C,utilities.lua,4,no
+SUPER + CTRL + O,Toggle menu,Utilities,,menu: toggle.,utilities,SUPER + CTRL + O,utilities.lua,5,no
+SUPER + CTRL + H,Hardware menu,Utilities,,menu: hardware.,utilities,SUPER + CTRL + H,utilities.lua,6,no
+SUPER + SHIFT + F23,Omarchy menu,Utilities,,"menu: root. F23 is Hyprland code 201, the same menu as Super+Space.",utilities,SUPER + SHIFT + code:201,utilities.lua,7,no
+SUPER + Esc,System menu,Utilities,,menu: system.,utilities,SUPER + ESCAPE,utilities.lua,8,no
+Power,Power menu,Utilities,,menu: system. Works on the lock screen.,utilities lock-screen,XF86PowerOff,utilities.lua,9,no
+SUPER + K,Keybindings,Utilities,,omarchy-menu-keybindings.,utilities,SUPER + K,utilities.lua,10,no
+SUPER + ALT + K,Tmux keybindings,Utilities,,omarchy-menu-tmux-keybindings.,utilities,SUPER + ALT + K,utilities.lua,11,no
+SUPER + CTRL + K,Herdr keybindings,Utilities,,omarchy-menu-herdr-keybindings.,utilities,SUPER + CTRL + K,utilities.lua,12,no
+SUPER + SHIFT + Space,Toggle top bar,Utilities,,Toggles bar.,utilities,SUPER + SHIFT + SPACE,utilities.lua,13,no
+SUPER + CTRL + Space,Background switcher,Utilities,,menu: background.,utilities,SUPER + CTRL + SPACE,utilities.lua,14,no
+SUPER + CTRL + W,Background switcher,Utilities,,menu: background.,utilities,SUPER + CTRL + W,utilities.lua,15,no
+SUPER + SHIFT + CTRL + Space,Theme menu,Utilities,,menu: theme.,utilities,SUPER + SHIFT + CTRL + SPACE,utilities.lua,16,no
+SUPER + CTRL + T,Theme menu,Utilities,,menu: theme.,utilities,SUPER + CTRL + T,utilities.lua,17,no
+SUPER + Bksp,Toggle transparency on a window,Utilities,,omarchy-hyprland-window-transparency-toggle.,utilities,SUPER + BACKSPACE,utilities.lua,18,no
+SUPER + SHIFT + Bksp,Toggle window gaps,Utilities,,omarchy-hyprland-window-gaps-toggle.,utilities,SUPER + SHIFT + BACKSPACE,utilities.lua,19,no
+SUPER + CTRL + Bksp,Toggle single-window square aspect,Utilities,,omarchy-hyprland-window-single-square-aspect-toggle.,utilities,SUPER + CTRL + BACKSPACE,utilities.lua,20,no
+SUPER + CTRL + ALT + F,Toggle full screen desktop,Utilities,,Toggles fullscreen-desktop.,utilities,SUPER + CTRL + ALT + F,utilities.lua,21,no
+"SUPER + ,","Dismiss, invoke, or focus last notification",Utilities,,ipc: notifications.act.,utilities,SUPER + comma,utilities.lua,24,no
+"SUPER + SHIFT + ,",Dismiss all notifications,Utilities,,ipc: notifications.dismissAll.,utilities,SUPER + SHIFT + comma,utilities.lua,25,no
+"SUPER + CTRL + ,",Control notifications with the keyboard,Utilities,,ipc: notifications.keyboard.,utilities,SUPER + CTRL + comma,utilities.lua,26,no
+"SUPER + ALT + ,",Dismiss last notification,Utilities,,ipc: notifications.dismissOne.,utilities,SUPER + ALT + comma,utilities.lua,27,no
+"SUPER + SHIFT + ALT + ,",Open notification history,Utilities,,ipc: notifications.showHistory.,utilities,SUPER + SHIFT + ALT + comma,utilities.lua,28,no
+"SUPER + CTRL + ALT + ,",Toggle silencing notifications,Utilities,,Toggles notification-silencing.,utilities,SUPER + CTRL + ALT + comma,utilities.lua,29,no
+SUPER + CTRL + I,Toggle locking on idle,Utilities,,Toggles idle.,utilities,SUPER + CTRL + I,utilities.lua,31,no
+SUPER + CTRL + Del,Toggle laptop display,Utilities,,omarchy-hyprland-monitor-internal toggle.,utilities,SUPER + CTRL + Delete,utilities.lua,32,no
+SUPER + CTRL + ALT + Del,Toggle laptop display mirroring,Utilities,,omarchy-hyprland-monitor-internal-mirror toggle.,utilities,SUPER + CTRL + ALT + Delete,utilities.lua,33,no
+Lid close,Close the lid,Utilities,,omarchy-system-lid-close. Works on the lock screen.,utilities hardware-switch lock-screen,switch:on:Lid Switch,utilities.lua,34,no
+Lid open,Open the lid,Utilities,,omarchy-hyprland-monitor-clamshell. Works on the lock screen.,utilities hardware-switch lock-screen,switch:off:Lid Switch,utilities.lua,35,no
+Apple lid close,Close the lid (Apple SMC),Utilities,,omarchy-system-lid-close. Works on the lock screen. Apple Silicon lid switch. This Dell does not send it.,utilities hardware-switch apple lock-screen,switch:on:Apple SMC power/lid events,utilities.lua,37,no
+Apple lid open,Open the lid (Apple SMC),Utilities,,omarchy-hyprland-monitor-clamshell. Works on the lock screen. Apple Silicon lid switch. This Dell does not send it.,utilities hardware-switch apple lock-screen,switch:off:Apple SMC power/lid events,utilities.lua,38,no
+PrtSc,Screenshot,Utilities,,omarchy-capture-screenshot.,utilities,PRINT,utilities.lua,40,no
+SUPER + CTRL + ALT + C,Screenshot,Utilities,,omarchy-capture-screenshot.,utilities,SUPER + CTRL + ALT + C,utilities.lua,41,no
+ALT + PrtSc,Screenrecording,Utilities,,omarchy-capture-screenrecording --stop-recording || omarchy-menu toggle trigger.capture.screenrecord.,utilities,ALT + PRINT,utilities.lua,42,no
+SUPER + ALT + [,Make webcam overlay smaller,Utilities,,omarchy-capture-webcam-resize smaller.,utilities,SUPER + ALT + code:34,utilities.lua,43,no
+SUPER + ALT + ],Make webcam overlay larger,Utilities,,omarchy-capture-webcam-resize larger.,utilities,SUPER + ALT + code:35,utilities.lua,44,no
+SUPER + PrtSc,Color picker,Utilities,,pkill hyprpicker || hyprpicker -a.,utilities,SUPER + PRINT,utilities.lua,45,no
+SUPER + CTRL + PrtSc,Extract text (OCR) from screenshot,Utilities,,omarchy-capture-text.,utilities,SUPER + CTRL + PRINT,utilities.lua,46,no
+Enter,Take the window,Utilities,Region picker,omarchy-capture-region --take-window. Only while the screenshot region picker is open.,utilities region-picker,RETURN,utilities.lua,79,no
+CTRL + Enter,Take the full screen,Utilities,Region picker,omarchy-capture-region --take-fullscreen. Only while the screenshot region picker is open.,utilities region-picker,CTRL + RETURN,utilities.lua,79,no
+Tab,Select the next window,Utilities,Region picker,omarchy-capture-region --select-window next. Only while the screenshot region picker is open.,utilities region-picker,TAB,utilities.lua,79,no
+CTRL + Tab,Select the previous window,Utilities,Region picker,omarchy-capture-region --select-window prev. Only while the screenshot region picker is open.,utilities region-picker,CTRL + TAB,utilities.lua,79,no
+Left,Select the window to the left,Utilities,Region picker,omarchy-capture-region --select-window left. Only while the screenshot region picker is open.,utilities region-picker,LEFT,utilities.lua,79,no
+Right,Select the window to the right,Utilities,Region picker,omarchy-capture-region --select-window right. Only while the screenshot region picker is open.,utilities region-picker,RIGHT,utilities.lua,79,no
+Up,Select the window above,Utilities,Region picker,omarchy-capture-region --select-window up. Only while the screenshot region picker is open.,utilities region-picker,UP,utilities.lua,79,no
+Down,Select the window below,Utilities,Region picker,omarchy-capture-region --select-window down. Only while the screenshot region picker is open.,utilities region-picker,DOWN,utilities.lua,79,no
+SUPER + CTRL + S,Share,Utilities,,menu: share.,utilities,SUPER + CTRL + S,utilities.lua,100,no
+SUPER + CTRL + .,Transcode,Utilities,,omarchy-transcode.,utilities,SUPER + CTRL + PERIOD,utilities.lua,102,no
+SUPER + CTRL + R,Set reminder,Utilities,,menu: reminder-set.,utilities,SUPER + CTRL + R,utilities.lua,104,no
+SUPER + CTRL + ALT + R,Show reminders,Utilities,,omarchy-reminder show.,utilities,SUPER + CTRL + ALT + R,utilities.lua,105,no
+SUPER + SHIFT + CTRL + R,Clear reminders,Utilities,,omarchy-reminder clear.,utilities,SUPER + SHIFT + CTRL + R,utilities.lua,106,no
+SUPER + CTRL + ALT + T,Show time,Utilities,,omarchy-notification-time.,utilities,SUPER + CTRL + ALT + T,utilities.lua,108,no
+SUPER + CTRL + ALT + B,Show battery remaining,Utilities,,omarchy-notification-battery.,utilities,SUPER + CTRL + ALT + B,utilities.lua,109,no
+SUPER + CTRL + ALT + W,Toggle weather,Utilities,,omarchy-notification-weather.,utilities,SUPER + CTRL + ALT + W,utilities.lua,110,no
+SUPER + SHIFT + CTRL + A,Agent,Utilities,,omarchy-agent --pick.,utilities,SUPER + SHIFT + CTRL + A,utilities.lua,112,no
+SUPER + CTRL + A,Audio,Utilities,,panel: audio.,utilities,SUPER + CTRL + A,utilities.lua,113,no
+SUPER + CTRL + B,Bluetooth,Utilities,,panel: bluetooth.,utilities,SUPER + CTRL + B,utilities.lua,114,no
+SUPER + CTRL + D,Display,Utilities,,panel: monitor.,utilities,SUPER + CTRL + D,utilities.lua,115,no
+SUPER + CTRL + ALT + D,Calendar (clock panel),Utilities,,panel: clock.,utilities,SUPER + CTRL + ALT + D,utilities.lua,116,no
+SUPER + CTRL + ALT + E,World clock,Utilities,,panel: elsewhen.,utilities,SUPER + CTRL + ALT + E,utilities.lua,117,no
+SUPER + CTRL + N,Network,Utilities,,panel: network.,utilities,SUPER + CTRL + N,utilities.lua,118,no
+SUPER + CTRL + P,Power,Utilities,,panel: power.,utilities,SUPER + CTRL + P,utilities.lua,119,no
+SUPER + SHIFT + T,Activity,Utilities,,tui: btop.,utilities,SUPER + SHIFT + T,utilities.lua,120,no
+SUPER + CTRL + 1,Bar panel 1,Utilities,,omarchy-shell -q shell togglePanelAt right 1.,utilities,SUPER + CTRL + code:10,utilities.lua,130,no
+SUPER + CTRL + 2,Bar panel 2,Utilities,,omarchy-shell -q shell togglePanelAt right 2.,utilities,SUPER + CTRL + code:11,utilities.lua,130,no
+SUPER + CTRL + 3,Bar panel 3,Utilities,,omarchy-shell -q shell togglePanelAt right 3.,utilities,SUPER + CTRL + code:12,utilities.lua,130,no
+SUPER + CTRL + 4,Bar panel 4,Utilities,,omarchy-shell -q shell togglePanelAt right 4.,utilities,SUPER + CTRL + code:13,utilities.lua,130,no
+SUPER + CTRL + 5,Bar panel 5,Utilities,,omarchy-shell -q shell togglePanelAt right 5.,utilities,SUPER + CTRL + code:14,utilities.lua,130,no
+SUPER + CTRL + 6,Bar panel 6,Utilities,,omarchy-shell -q shell togglePanelAt right 6.,utilities,SUPER + CTRL + code:15,utilities.lua,130,no
+SUPER + CTRL + 7,Bar panel 7,Utilities,,omarchy-shell -q shell togglePanelAt right 7.,utilities,SUPER + CTRL + code:16,utilities.lua,130,no
+SUPER + CTRL + 8,Bar panel 8,Utilities,,omarchy-shell -q shell togglePanelAt right 8.,utilities,SUPER + CTRL + code:17,utilities.lua,130,no
+SUPER + CTRL + 9,Bar panel 9,Utilities,,omarchy-shell -q shell togglePanelAt right 9.,utilities,SUPER + CTRL + code:18,utilities.lua,130,no
+SUPER + CTRL + Z,Zoom in,Utilities,,,utilities,SUPER + CTRL + Z,utilities.lua,134,no
+SUPER + CTRL + ALT + Z,Reset zoom,Utilities,,,utilities,SUPER + CTRL + ALT + Z,utilities.lua,139,no
+SUPER + CTRL + L,Lock system,Utilities,,omarchy-system-lock.,utilities,SUPER + CTRL + L,utilities.lua,143,no
+Vol +,Volume up,Media,"Volume, brightness, and hardware",audio: raise. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86AudioRaiseVolume,media.lua,2,no
+Vol −,Volume down,Media,"Volume, brightness, and hardware",audio: lower. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86AudioLowerVolume,media.lua,3,no
+Mute,Mute,Media,"Volume, brightness, and hardware",audio: mute-toggle. Works on the lock screen.,media volume-hardware lock-screen,XF86AudioMute,media.lua,4,no
+Mic mute,Mute microphone,Media,"Volume, brightness, and hardware",omarchy-audio-input-mute. Works on the lock screen.,media volume-hardware lock-screen,XF86AudioMicMute,media.lua,5,no
+Bright +,Brightness up,Media,"Volume, brightness, and hardware",brightness: raise. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86MonBrightnessUp,media.lua,6,no
+Bright −,Brightness down,Media,"Volume, brightness, and hardware",brightness: lower. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86MonBrightnessDown,media.lua,7,no
+SHIFT + Bright +,Brightness maximum,Media,"Volume, brightness, and hardware",omarchy-brightness-display 100%. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,SHIFT + XF86MonBrightnessUp,media.lua,8,no
+SHIFT + Bright −,Brightness minimum,Media,"Volume, brightness, and hardware",omarchy-brightness-display 1%. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,SHIFT + XF86MonBrightnessDown,media.lua,9,no
+Kbd +,Keyboard brightness up,Media,"Volume, brightness, and hardware",omarchy-brightness-keyboard up. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86KbdBrightnessUp,media.lua,10,no
+Kbd −,Keyboard brightness down,Media,"Volume, brightness, and hardware",omarchy-brightness-keyboard down. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,XF86KbdBrightnessDown,media.lua,11,no
+CTRL + Bright −,Keyboard brightness down,Media,"Volume, brightness, and hardware",omarchy-brightness-keyboard down. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,CTRL + XF86MonBrightnessDown,media.lua,15,no
+CTRL + Bright +,Keyboard brightness up,Media,"Volume, brightness, and hardware",omarchy-brightness-keyboard up. Repeats while held. Works on the lock screen.,media volume-hardware repeats lock-screen,CTRL + XF86MonBrightnessUp,media.lua,16,no
+Kbd light,Keyboard backlight cycle,Media,"Volume, brightness, and hardware",omarchy-brightness-keyboard cycle. Works on the lock screen.,media volume-hardware lock-screen,XF86KbdLightOnOff,media.lua,17,no
+Touchpad,Toggle touchpad,Media,"Volume, brightness, and hardware",Toggles touchpad. Works on the lock screen.,media volume-hardware lock-screen,XF86TouchpadToggle,media.lua,18,no
+Pad on,Enable touchpad,Media,"Volume, brightness, and hardware",omarchy-toggle-touchpad on. Works on the lock screen.,media volume-hardware lock-screen,XF86TouchpadOn,media.lua,19,no
+Pad off,Disable touchpad,Media,"Volume, brightness, and hardware",omarchy-toggle-touchpad off. Works on the lock screen.,media volume-hardware lock-screen,XF86TouchpadOff,media.lua,20,no
+ALT + Vol +,Volume up precise,Media,Precise volume and brightness,omarchy-audio-output-volume +1. Repeats while held. Works on the lock screen.,media precise repeats lock-screen,ALT + XF86AudioRaiseVolume,media.lua,23,no
+ALT + Vol −,Volume down precise,Media,Precise volume and brightness,omarchy-audio-output-volume -1. Repeats while held. Works on the lock screen.,media precise repeats lock-screen,ALT + XF86AudioLowerVolume,media.lua,24,no
+ALT + Bright +,Brightness up precise,Media,Precise volume and brightness,omarchy-brightness-display +1%. Repeats while held. Works on the lock screen.,media precise repeats lock-screen,ALT + XF86MonBrightnessUp,media.lua,25,no
+ALT + Bright −,Brightness down precise,Media,Precise volume and brightness,omarchy-brightness-display 1%-. Repeats while held. Works on the lock screen.,media precise repeats lock-screen,ALT + XF86MonBrightnessDown,media.lua,26,no
+Next,Next track,Media,Media controls,ipc: media.next. Works on the lock screen.,media media-controls lock-screen,XF86AudioNext,media.lua,29,no
+ALT + Play,Next track,Media,Media controls,ipc: media.next. Works on the lock screen.,media media-controls lock-screen,ALT + XF86AudioPlay,media.lua,30,no
+Pause,Pause,Media,Media controls,ipc: media.playPause. Works on the lock screen.,media media-controls lock-screen,XF86AudioPause,media.lua,31,no
+Play,Play,Media,Media controls,ipc: media.playPause. Works on the lock screen.,media media-controls lock-screen,XF86AudioPlay,media.lua,32,no
+Prev,Previous track,Media,Media controls,ipc: media.previous. Works on the lock screen.,media media-controls lock-screen,XF86AudioPrev,media.lua,33,no
+ALT + SHIFT + Play,Previous track,Media,Media controls,ipc: media.previous. Works on the lock screen.,media media-controls lock-screen,ALT + SHIFT + XF86AudioPlay,media.lua,34,no
+Eject,Eject media,Media,Media controls,eject. Works on the lock screen.,media media-controls lock-screen,XF86Eject,media.lua,35,no
+SHIFT + Mute,Switch audio output,Media,Media controls,omarchy-audio-output-switch. Works on the lock screen.,media media-controls lock-screen,SHIFT + XF86AudioMute,media.lua,37,no
+SHIFT + Pause,Switch media source,Media,Media controls,omarchy-audio-source-switch. Works on the lock screen.,media media-controls lock-screen,SHIFT + XF86AudioPause,media.lua,38,no
+SHIFT + Play,Switch media source,Media,Media controls,omarchy-audio-source-switch. Works on the lock screen.,media media-controls lock-screen,SHIFT + XF86AudioPlay,media.lua,39,no
+ALT + Space,Toggle dictation,Dictation,,omarchy-dictation toggle. Only while a dictation backend is installed.,dictation conditional-dictation,ALT + SPACE,dictation.lua,15,no
+ALT + Right Alt,Start dictation (push-to-talk),Dictation,,omarchy-dictation start. Release: Stop dictation (push-to-talk). Only while a dictation backend is installed.,dictation conditional-dictation,ALT + Alt_R,dictation.lua,18,no
+SUPER + I,Switch input language,Input method,,omarchy-input-method cycle.,input-method,SUPER + I,input-method.lua,19,no
+SUPER + SHIFT + I,Switch input language back,Input method,,omarchy-input-method cycle back.,input-method,SUPER + SHIFT + I,input-method.lua,20,no
+CTRL + Space,Direct input for the terminal prefix,Input method,,,input-method,CTRL + SPACE,input-method.lua,29,no
+CTRL + SHIFT + ;,Zoom in (JIS + key),JIS,,JIS keyboards only. The plus key is Shift+; on that layout.,jis,CTRL + SHIFT + semicolon,jis.lua,32,no
