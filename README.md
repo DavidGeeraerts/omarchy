@@ -2,6 +2,8 @@
 
 Personal playbook for a Dell hybrid laptop on Omarchy 4.5 (Quattro: Quickshell bar, Lua Hyprland config). Intel Iris Xe plus NVIDIA RTX 3060 Mobile, user `maquis`, timezone `America/Los_Angeles`, US keyboard, Btrfs on LUKS with Limine.
 
+System snapshot: [fastfetch.md](fastfetch.md), captured 2026-11-14.
+
 ## Pre-install: BIOS settings
 
 Do these in the Dell firmware setup before the Omarchy ISO boots. The firmware cannot be scripted. Press F2 at the logo. The key and the menu names vary by model. This is a checklist so later firmware choices can be added here.
