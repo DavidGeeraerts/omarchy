@@ -593,9 +593,33 @@ ensure_multilib() {
   changed "enabled [multilib]"
 }
 
+hint_anki_deck() {
+  local root apkg
+  local -a decks=()
+  # Print the deck path. Do not exec anki: a post-install re-run should stay
+  # on the terminal, and --dry-run must not open a window either.
+  root=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+  shopt -s nullglob
+  decks=("$root"/flashcards/*.apkg)
+  shopt -u nullglob
+  if [[ ${#decks[@]} -eq 0 ]]; then
+    log "Anki deck: File -> Import, then flashcards/*.apkg. Anki is not launched."
+    return 0
+  fi
+  log "Anki deck: File -> Import. Anki is not launched."
+  for apkg in "${decks[@]}"; do
+    log "  $apkg"
+  done
+}
+
 step_packages() {
   step "Packages"
   pkg_add geeqie
+  # anki is in Arch extra (official repo), same install path as geeqie:
+  # omarchy pkg add -> pacman -S --needed --noconfirm. Skip when pacman -Q
+  # already sees it. The hint below is a log line, not a launch.
+  pkg_add anki
+  hint_anki_deck
   ensure_multilib
 
   # Steam: bin/omarchy-install-gaming-steam installs lib32 drivers first

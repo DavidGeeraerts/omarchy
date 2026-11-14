@@ -37,6 +37,8 @@ You can print and import these without running the generator.
 
 ## Anki
 
+Anki is installed by `post-install.sh`, or run `sudo pacman -S anki`. The package is `anki` in Arch extra. The script skips the install when `pacman -Q anki` already succeeds, and `--dry-run` only prints the command. It does not open Anki. After the package step it prints the path of `flashcards/*.apkg` so you can import it yourself.
+
 In Anki: File → Import, and choose `omarchy-keybindings.apkg`. Two decks come in.
 
 **Omarchy Keybindings** is the study deck. The front is the action and the category. The back is the key combo. Each note has a second card that goes the other way: the keys are on the front, the action is on the back. That is 516 study cards (258 notes × 2).
