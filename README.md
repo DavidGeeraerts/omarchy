@@ -1,6 +1,6 @@
 # omarchy
 
-Personal playbook for a Dell hybrid laptop on Omarchy 4.5 (Quattro: Quickshell bar, Lua Hyprland config). Intel Iris Xe plus NVIDIA RTX 3060 Mobile, user `maquis`, timezone `America/Los_Angeles`, US keyboard, Btrfs on LUKS with Limine.
+Personal playbook for a Dell XPS 17 9720 (GPU hybrid laptop) on Omarchy 4.5 (Quattro: Quickshell bar, Lua Hyprland config). Intel Iris Xe plus NVIDIA RTX 3060 Mobile, user `maquis`, timezone `America/Los_Angeles`, US keyboard, Btrfs on LUKS with Limine.
 
 System snapshot: [fastfetch.md](fastfetch.md), captured 2026-11-14.
 
