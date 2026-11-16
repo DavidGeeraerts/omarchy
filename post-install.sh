@@ -620,6 +620,19 @@ step_packages() {
   # already sees it. The hint below is a log line, not a launch.
   pkg_add anki
   hint_anki_deck
+  # flea is the GUI file manager from the Omarchy package repository
+  # (github.com/thisisgm/flea). Same install path as anki: omarchy pkg add,
+  # skipped when pacman -Q flea already succeeds. flea --default makes it
+  # the default file manager, file chooser, and Super+Shift+F app. run
+  # prints that command on --dry-run. A live run calls it only when flea
+  # is on PATH, including when the package was already installed.
+  pkg_add flea
+  if command -v flea >/dev/null 2>&1; then
+    run flea --default
+    changed "flea --default"
+  else
+    log "flea is not on PATH. Skipping flea --default."
+  fi
   ensure_multilib
 
   # Steam: bin/omarchy-install-gaming-steam installs lib32 drivers first
