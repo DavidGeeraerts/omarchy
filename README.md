@@ -2,6 +2,8 @@
 
 Personal playbook for a Dell XPS 17 9720 (GPU hybrid laptop) on Omarchy 4.5 (Quattro: Quickshell bar, Lua Hyprland config). Intel Iris Xe plus NVIDIA RTX 3060 Mobile, user `maquis`, timezone `America/Los_Angeles`, US keyboard, Btrfs on LUKS with Limine.
 
+Any other Omarchy system uses [`post-install-omarchy-generic.sh`](post-install-omarchy-generic.sh). That script is the hardware-agnostic baseline. See [Which script](#which-script).
+
 System snapshot: [fastfetch.md](fastfetch.md), captured 2026-11-14.
 
 ## Pre-install: BIOS settings
@@ -87,6 +89,29 @@ Git name and email are not part of the install. After first login: `omarchy setu
 
 ## Post-install
 
+### Which script
+
+| Machine | Script |
+| --- | --- |
+| Any Omarchy system | [`post-install-omarchy-generic.sh`](post-install-omarchy-generic.sh) |
+| Dell XPS 17 9720 | [`post-install-dell-xps-17-9720.sh`](post-install-dell-xps-17-9720.sh) |
+| Dell Latitude 5540 | [`post-install-dell-latitude-5540.sh`](post-install-dell-latitude-5540.sh) |
+
+Use `post-install-omarchy-generic.sh` for any other Omarchy system, and when you want only the shared steps. Run it as the login user, not as root:
+
+```bash
+./post-install-omarchy-generic.sh --dry-run
+./post-install-omarchy-generic.sh
+```
+
+`--dry-run` prints the plan and does not change the system. The script checks each step before it changes anything. It appends to `~/.local/state/omarchy-playbook/post-install.log`.
+
+The generic script rotates the temporary `2ChangeMe!` login password and LUKS passphrase when they are still the public default, then locks root. The login name is whichever account runs the script. It then runs `omarchy update -y` and installs `omarchy-agents-nostarters` so the Agents bar drops the three "Make something cool" starter tiles. Package adds are geeqie, Anki (`anki` from Arch extra), Flea, and Steam. Steam goes through Omarchy's lib32 driver step for the detected GPU, then `omarchy pkg add steam`. Flea runs `flea --default` when `flea` is on `PATH`. VLC stays commented out. The package step then drops `obsidian`. It sets `hwdec=vaapi` in mpv, points Sony ARW/SR2/SRF at Geeqie, installs and enables Matrix Screens with the screensaver on, enables Pulse, and installs the latest RAWmakase `.pkg.tar.zst` after `SHA256SUMS`. It writes the Hyprland bindings in `~/.config/hypr/bindings.lua` and reloads Hyprland when that file changes and Hyprland is running.
+
+It leaves firmware, the touchscreen, `nvidia-prime`, data-drive mounts such as `/data`, the Steam library path, monitors, scale, and the hostname alone. The XPS and Latitude scripts still contain their own copies of the shared steps. [`postflight-Dell-XPS-17-9720.sh`](postflight-Dell-XPS-17-9720.sh) is unchanged.
+
+The steps below are the XPS 17 9720 playbook.
+
 On the installed system:
 
 ```bash
@@ -112,7 +137,7 @@ The first step rotates those temporary credentials before any package work. If t
 
 After `omarchy update -y`, the package step runs `omarchy pkg drop obsidian`. Quattro's `omarchy-pkg-drop` (`bin/omarchy-pkg-drop`) removes a named package only when it is installed, with `sudo pacman -Rns --noconfirm`. When `pacman -Q obsidian` fails, the script logs that and does not call drop. `--dry-run` prints `omarchy pkg drop obsidian` when the package is installed, and does not remove it. `omarchy update` may not install Obsidian again. The drop still runs on every post-install, so a copy that is present is removed.
 
-The same step is in [`post-install-dell-xps-17-9720.sh`](post-install-dell-xps-17-9720.sh), [`post-install-dell-latitude-5540.sh`](post-install-dell-latitude-5540.sh), and [`postflight-Dell-XPS-17-9720.sh`](postflight-Dell-XPS-17-9720.sh). Obsidian is not on an install list in this repo.
+The same step is in [`post-install-omarchy-generic.sh`](post-install-omarchy-generic.sh), [`post-install-dell-xps-17-9720.sh`](post-install-dell-xps-17-9720.sh), [`post-install-dell-latitude-5540.sh`](post-install-dell-latitude-5540.sh), and [`postflight-Dell-XPS-17-9720.sh`](postflight-Dell-XPS-17-9720.sh). Obsidian is not on an install list in this repo.
 
 The keybinding snapshot was not regenerated. It still records the upstream chord `SUPER + SHIFT + O` as Obsidian (`flashcards/source/applications.lua`, `flashcards/omarchy-keybindings.csv`). The JIS zoom override in `flashcards/source/jis.lua` still sends Ctrl+^ to a window class of `obsidian`.
 
