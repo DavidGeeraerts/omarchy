@@ -110,7 +110,7 @@ Included, and marked on the card, because the file only binds them conditionally
 
 Two study fronts that shared a name but not a command are labeled: Hey **Calendar (web app)** versus the bar **Calendar (clock panel)**.
 
-No active binding was dropped.
+No active binding was dropped. The deck still includes the upstream Obsidian binding, and these cards were not regenerated. `SUPER + SHIFT + O` launches `obsidian` (`flashcards/source/applications.lua`, and the same row in `omarchy-keybindings.csv`). The JIS zoom override sends Ctrl+^ when the focused window class is `obsidian` (`flashcards/source/jis.lua`). The post-install scripts remove the `obsidian` package.
 
 These commented lines in `user-bindings.lua` are examples, not bindings, so they are not cards:
 
