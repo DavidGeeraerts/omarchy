@@ -13,3 +13,11 @@
 | `omarchy-agents-nostarters` | Local helper that replaces the Agents panel with a copy that omits its starter tiles | Copies the repository script to `~/.local/bin` and runs it | [XPS 17 9720](./post-install-dell-xps-17-9720.sh), [Latitude 5540](./post-install-dell-latitude-5540.sh) |
 
 Package installs are skipped when the package is already installed. The lib32 GPU driver packages are selected at runtime for the detected GPU, so their individual package names are not fixed in the scripts. VLC is optional and its install command is commented out.
+
+## Removed packages
+
+Omarchy installs these by default. The post-install scripts remove them after `omarchy update`. `omarchy pkg drop` removes a name only when it is installed (`sudo pacman -Rns --noconfirm`). `--dry-run` prints that command and does not remove the package. `omarchy update` may not install them again; the drop still runs on every post-install.
+
+| Software / package | What it is | How the post-install scripts remove it | Script(s) |
+| --- | --- | --- | --- |
+| `obsidian` | Notes app from Arch extra | `omarchy pkg drop obsidian` when `pacman -Q obsidian` succeeds | [XPS 17 9720](./post-install-dell-xps-17-9720.sh), [Latitude 5540](./post-install-dell-latitude-5540.sh), [XPS postflight](./postflight-Dell-XPS-17-9720.sh) |

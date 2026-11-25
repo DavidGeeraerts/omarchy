@@ -109,6 +109,29 @@ pkg_add() {
   changed "installed $pkg"
 }
 
+# Default Omarchy packages this machine does not keep. obsidian is in Arch
+# extra and is part of the Omarchy install set. It is not in any install list
+# in this repo. omarchy update may not put it back; the drop still runs after
+# every update so a copy that is present is removed.
+PACKAGES_DROP=(
+  obsidian
+)
+
+pkg_drop() {
+  local pkg
+  for pkg in "$@"; do
+    if ! pkg_installed "$pkg"; then
+      log "$pkg is not installed"
+      continue
+    fi
+    # omarchy-pkg-drop (quattro bin/omarchy-pkg-drop) removes the named
+    # packages only when they are installed, via sudo pacman -Rns --noconfirm.
+    # run prints the command on --dry-run and does not remove anything.
+    run omarchy pkg drop "$pkg"
+    changed "removed $pkg"
+  done
+}
+
 ensure_line() {
   local file=$1
   local line=$2
@@ -618,6 +641,11 @@ step_packages() {
     run omarchy pkg add steam
     changed "installed steam"
   fi
+
+  # obsidian ships with Omarchy (Arch extra). Drop it when pacman still
+  # sees it. --dry-run prints `omarchy pkg drop obsidian` and does not
+  # remove the package.
+  pkg_drop "${PACKAGES_DROP[@]}"
 
   # vlc is optional. Uncomment the next line to install it.
   # pkg_add vlc
