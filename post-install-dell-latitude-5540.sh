@@ -618,6 +618,309 @@ hint_anki_deck() {
   done
 }
 
+# Azul Zulu OpenJDK 21. zulu-21-bin installs /usr/lib/jvm/zulu-21 and
+# registers the archlinux-java name zulu-21 (provides java-environment=21).
+# ThinkOrSwim, the Schwab trading platform, requires this JDK.
+JVM_DIR=/usr/lib/jvm
+TOS_INSTALLER_URL=https://tosmediaserver.schwab.com/installer/InstFiles/thinkorswim_installer.sh
+TOS_DIR="$HOME/thinkorswim"
+TOS_BIN="$TOS_DIR/thinkorswim"
+TOS_ICON="$TOS_DIR/.install4j/thinkorswim.png"
+# Freedesktop menu entry. $XDG_DATA_HOME/applications is this path when
+# XDG_DATA_HOME is unset.
+TOS_DESKTOP="${XDG_DATA_HOME:-$HOME/.local/share}/applications/thinkorswim.desktop"
+
+# Returns 0 when `java -version` reports major 21.
+java_reports_21() {
+  local java=$1
+  local text
+  text=$("$java" -version 2>&1) || true
+  [[ $text == *'version "21'* ]]
+}
+
+# Sets the nameref named by $1 to a Zulu 21 home under $2 (default
+# /usr/lib/jvm) whose bin/java -version reports 21. Prefers zulu-21.
+# Returns 1 when none matches.
+zulu21_java_home() {
+  local -n _out=$1
+  local root=${2:-$JVM_DIR}
+  local dir base
+  local -a preferred=()
+  local -a rest=()
+  local -a ordered=()
+  local -A seen=()
+
+  shopt -s nullglob
+  for dir in "$root"/zulu-21 "$root"/*[Zz]ulu*21* "$root"/*[Zz]ulu21*; do
+    [[ -d $dir ]] || continue
+    base=$(basename -- "$dir")
+    case $base in
+      default | default-runtime) continue ;;
+    esac
+    if [[ -n ${seen[$dir]+x} ]]; then
+      continue
+    fi
+    seen[$dir]=1
+    if [[ $base == zulu-21 ]]; then
+      preferred+=("$dir")
+    else
+      rest+=("$dir")
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ ${#preferred[@]} -gt 0 ]]; then
+    ordered+=("${preferred[@]}")
+  fi
+  if [[ ${#rest[@]} -gt 0 ]]; then
+    ordered+=("${rest[@]}")
+  fi
+  if [[ ${#ordered[@]} -eq 0 ]]; then
+    return 1
+  fi
+  for dir in "${ordered[@]}"; do
+    if [[ ! -x $dir/bin/java ]]; then
+      log "skipped $dir: bin/java is missing or not executable"
+      continue
+    fi
+    if java_reports_21 "$dir/bin/java"; then
+      _out=$dir
+      return 0
+    fi
+    log "skipped $dir: bin/java -version did not report 21"
+  done
+  return 1
+}
+
+# Prints the Zulu 21 environment name from `archlinux-java status`.
+# Prefers the exact name zulu-21. Returns 1 when status has none.
+zulu21_env_from_status() {
+  local status=$1
+  local exact
+  exact=$(printf '%s\n' "$status" | tr -d '\r' | awk '$1 == "zulu-21" { print $1; exit }')
+  if [[ -n $exact ]]; then
+    printf '%s\n' "$exact"
+    return 0
+  fi
+  printf '%s\n' "$status" | tr -d '\r' | awk '
+    $1 ~ /^[Zz]ulu/ && $1 ~ /21/ { print $1; found = 1; exit }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+# zulu-21-bin's install hook only runs `archlinux-java set zulu-21` when no
+# default is set, so an existing JDK 25 (or any other default) would stay
+# in place. ThinkOrSwim needs 21 to be the default. Skip with a log when
+# archlinux-java is not on PATH. --dry-run prints the set and does not run it.
+ensure_zulu21_default() {
+  local status env current err
+  if ! command -v archlinux-java >/dev/null 2>&1; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: archlinux-java is not on PATH."
+      log "dry-run: zulu-21-bin depends on java-runtime-common, which provides archlinux-java."
+      log "dry-run: after that package is installed, would read archlinux-java status and run sudo archlinux-java set <zulu-21 name>."
+      log "dry-run: if archlinux-java is still missing, would skip the Java 21 default."
+      changed "set Zulu 21 as the default Java environment when archlinux-java is available"
+      return 0
+    fi
+    log "archlinux-java is not available. Skipping the Java 21 default."
+    return 0
+  fi
+
+  err=$(mktemp)
+  if ! status=$(archlinux-java status 2>"$err"); then
+    log "archlinux-java status failed: $(tr '\n' ' ' <"$err")"
+    rm -f -- "$err"
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: would set the Zulu 21 environment once archlinux-java status lists it."
+      changed "set Zulu 21 as the default Java environment"
+      return 0
+    fi
+    die "could not read Java environments from archlinux-java status"
+  fi
+  rm -f -- "$err"
+
+  if ! env=$(zulu21_env_from_status "$status"); then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      log "dry-run: archlinux-java status has no Zulu 21 environment yet."
+      log "dry-run: would run sudo archlinux-java set <zulu-21 name from archlinux-java status> after zulu-21-bin is installed."
+      changed "set Zulu 21 as the default Java environment"
+      return 0
+    fi
+    log "archlinux-java status did not list a Zulu 21 environment:"
+    log "$status"
+    die "could not find a Zulu 21 environment to set as the default Java"
+  fi
+
+  current=$(archlinux-java get 2>/dev/null | awk 'NF { print $1; exit }' || true)
+  if [[ -n $current && $current == "$env" ]]; then
+    log "Java default is already $env"
+    return 0
+  fi
+  if [[ -z $current ]] && awk -v env="$env" '$1 == env && $2 == "(default)" { found = 1 } END { exit found ? 0 : 1 }' <<<"$status"; then
+    log "Java default is already $env"
+    return 0
+  fi
+
+  log "setting the default Java environment to $env"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    run sudo archlinux-java set "$env"
+    changed "set $env as the default Java environment"
+    return 0
+  fi
+  sudo archlinux-java set "$env"
+  current=$(archlinux-java get 2>/dev/null | awk 'NF { print $1; exit }' || true)
+  if [[ $current != "$env" ]]; then
+    die "default Java environment is '${current:-unset}' after archlinux-java set $env"
+  fi
+  changed "set $env as the default Java environment"
+}
+
+# Prints a desktop file that launches thinkorswim, if one already exists.
+thinkorswim_desktop_from_installer() {
+  local dir file
+  local -a dirs=()
+  dirs=(
+    "$(dirname -- "$TOS_DESKTOP")"
+    "$HOME/Desktop"
+    "$TOS_DIR"
+  )
+  for dir in "${dirs[@]}"; do
+    [[ -d $dir ]] || continue
+    for file in "$dir"/*.desktop; do
+      [[ -f $file ]] || continue
+      if grep -qF -- "$TOS_BIN" "$file"; then
+        printf '%s\n' "$file"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
+# Exec is the absolute launcher path. Desktop files do not expand $HOME.
+# Icon is included only when the install4j png is present.
+ensure_thinkorswim_desktop() {
+  local found dir
+  if [[ -f $TOS_DESKTOP ]]; then
+    log "desktop entry already present at $TOS_DESKTOP"
+    return 0
+  fi
+  if found=$(thinkorswim_desktop_from_installer); then
+    log "thinkorswim desktop entry already present at $found"
+    return 0
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "would write $TOS_DESKTOP"
+    log "would set Exec=$TOS_BIN"
+    if [[ -f $TOS_ICON ]]; then
+      log "would set Icon=$TOS_ICON"
+    else
+      log "icon $TOS_ICON is not present, so the desktop entry would omit Icon"
+    fi
+    changed "desktop entry $TOS_DESKTOP"
+    return 0
+  fi
+  dir=$(dirname -- "$TOS_DESKTOP")
+  mkdir -p -- "$dir"
+  # log() writes to stdout. Keep it outside the redirect that creates the
+  # desktop file, or the skip message becomes part of that file.
+  local use_icon=0
+  if [[ -f $TOS_ICON ]]; then
+    use_icon=1
+  else
+    log "icon $TOS_ICON is not present. The desktop entry omits Icon."
+  fi
+  {
+    printf '%s\n' '[Desktop Entry]'
+    printf '%s\n' 'Type=Application'
+    printf '%s\n' 'Name=thinkorswim'
+    printf '%s\n' 'GenericName=Trading platform'
+    printf '%s\n' 'Comment=Schwab thinkorswim'
+    printf 'Exec=%s\n' "$TOS_BIN"
+    if [[ $use_icon -eq 1 ]]; then
+      printf 'Icon=%s\n' "$TOS_ICON"
+    fi
+    printf '%s\n' 'Terminal=false'
+    printf '%s\n' 'Categories=Office;Finance;'
+    printf '%s\n' 'StartupNotify=true'
+  } >"$TOS_DESKTOP"
+  chmod 644 -- "$TOS_DESKTOP"
+  log "wrote $TOS_DESKTOP"
+  changed "desktop entry $TOS_DESKTOP"
+}
+
+# Schwab's install4j installer, per user. The AUR thinkorswim-bin package
+# installs under /usr/lib, which breaks thinkorswim's self-updater, so this
+# step does not use it. --dry-run prints the download and the installer
+# command and does not run them.
+step_thinkorswim() {
+  step "thinkorswim"
+  local java_home installer bytes rc
+  if [[ -e $TOS_BIN ]]; then
+    if [[ ! -x $TOS_BIN ]]; then
+      die "$TOS_BIN exists but is not executable"
+    fi
+    log "thinkorswim already installed at $TOS_BIN"
+    ensure_thinkorswim_desktop
+    return 0
+  fi
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    if zulu21_java_home java_home; then
+      log "dry-run: Zulu 21 home is $java_home (bin/java -version reports 21)"
+    else
+      log "dry-run: would locate a Zulu 21 home under $JVM_DIR and require that bin/java -version reports 21"
+    fi
+    log "dry-run: would download $TOS_INSTALLER_URL to a temp file (install4j installer, about 25 MB)"
+    log "dry-run: would run as $USER, not root: INSTALL4J_JAVA_HOME_OVERRIDE=<Zulu 21 home> sh installer -q -dir $TOS_DIR"
+    log "dry-run: would require $TOS_BIN to exist and be executable"
+    log "dry-run: would write $TOS_DESKTOP if the installer did not create a desktop entry (Exec=$TOS_BIN; Icon=$TOS_ICON when present)"
+    changed "install thinkorswim for $USER in $TOS_DIR"
+    return 0
+  fi
+
+  if ! zulu21_java_home java_home; then
+    die "no Zulu 21 home under $JVM_DIR whose bin/java -version reports 21"
+  fi
+  log "Zulu 21 home is $java_home (bin/java -version reports 21)"
+  require_cmd curl
+  installer=$(mktemp)
+  log "downloading $TOS_INSTALLER_URL"
+  if ! curl -fsSL --output "$installer" "$TOS_INSTALLER_URL"; then
+    rm -f -- "$installer"
+    die "failed to download the thinkorswim installer"
+  fi
+  if ! head -n 1 -- "$installer" | grep -q '^#!/bin/sh'; then
+    rm -f -- "$installer"
+    die "downloaded file is not the thinkorswim install4j script"
+  fi
+  bytes=$(wc -c <"$installer")
+  bytes=${bytes//[[:space:]]/}
+  log "downloaded thinkorswim installer ($bytes bytes; about 25 MB)"
+  if [[ ! $bytes =~ ^[0-9]+$ ]] || ((bytes < 1000000)); then
+    rm -f -- "$installer"
+    die "thinkorswim installer is ${bytes:-0} bytes; expected about 25 MB"
+  fi
+  log "running the thinkorswim installer as $USER, not root"
+  log "INSTALL4J_JAVA_HOME_OVERRIDE=$java_home sh installer -q -dir $TOS_DIR"
+  if ! INSTALL4J_JAVA_HOME_OVERRIDE="$java_home" sh "$installer" -q -dir "$TOS_DIR"; then
+    rc=$?
+    rm -f -- "$installer"
+    die "thinkorswim installer failed (exit $rc)"
+  fi
+  rm -f -- "$installer"
+  if [[ ! -e $TOS_BIN ]]; then
+    die "thinkorswim installer did not create $TOS_BIN"
+  fi
+  if [[ ! -x $TOS_BIN ]]; then
+    die "$TOS_BIN exists but is not executable"
+  fi
+  log "thinkorswim installed at $TOS_BIN"
+  changed "installed thinkorswim for $USER in $TOS_DIR"
+  ensure_thinkorswim_desktop
+}
+
 step_packages() {
   step "Packages"
   pkg_add geeqie
@@ -639,13 +942,16 @@ step_packages() {
   else
     log "flea is not on PATH. Skipping flea --default."
   fi
-  # zulu-25-bin is Azul Zulu JDK 25 (LTS) from the AUR. ThinkOrSwim, the
+  # zulu-21-bin is Azul Zulu JDK 21 (LTS) from the AUR. ThinkOrSwim, the
   # Schwab trading platform, is a Java app and needs this JDK.
-  # pkg_aur_add skips the install when pacman -Q zulu-25-bin already
-  # succeeds. --dry-run prints `omarchy pkg aur add zulu-25-bin` and does
-  # not install it.
-  log "zulu-25-bin: Azul Zulu JDK 25 (LTS), needed for ThinkOrSwim (the Schwab trading platform, a Java app)"
-  pkg_aur_add zulu-25-bin
+  # pkg_aur_add skips the install when pacman -Q zulu-21-bin already
+  # succeeds. --dry-run prints `omarchy pkg aur add zulu-21-bin` and does
+  # not install it. ensure_zulu21_default then makes that JDK the default
+  # when archlinux-java is available. step_thinkorswim runs after that.
+  log "zulu-21-bin: Azul Zulu JDK 21 (LTS), needed for ThinkOrSwim (the Schwab trading platform, a Java app)"
+  pkg_aur_add zulu-21-bin
+  ensure_zulu21_default
+  step_thinkorswim
   ensure_multilib
 
   # Steam: bin/omarchy-install-gaming-steam installs lib32 drivers first
