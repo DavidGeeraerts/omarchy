@@ -146,19 +146,6 @@ pkg_add() {
   changed "installed $pkg"
 }
 
-pkg_aur_add() {
-  local pkg=$1
-  if pkg_installed "$pkg"; then
-    log "$pkg already installed"
-    return 0
-  fi
-  # omarchy-pkg-aur-add (quattro bin/omarchy-pkg-aur-add) installs a missing
-  # AUR package with yay -S --noconfirm --needed and checks that it landed.
-  # run prints the command on --dry-run and does not install anything.
-  run omarchy pkg aur add "$pkg"
-  changed "installed $pkg"
-}
-
 # Default Omarchy packages this machine does not keep. obsidian is in Arch
 # extra and is part of the Omarchy install set. It is not in any install list
 # in this repo. omarchy update may not put it back; the drop still runs after
@@ -669,13 +656,6 @@ step_packages() {
   else
     log "flea is not on PATH. Skipping flea --default."
   fi
-  # zulu-25-bin is Azul Zulu JDK 25 (LTS) from the AUR. ThinkOrSwim, the
-  # Schwab trading platform, is a Java app and needs this JDK.
-  # pkg_aur_add skips the install when pacman -Q zulu-25-bin already
-  # succeeds. --dry-run prints `omarchy pkg aur add zulu-25-bin` and does
-  # not install it.
-  log "zulu-25-bin: Azul Zulu JDK 25 (LTS), needed for ThinkOrSwim (the Schwab trading platform, a Java app)"
-  pkg_aur_add zulu-25-bin
   ensure_multilib
 
   # Steam: bin/omarchy-install-gaming-steam installs lib32 drivers first
